@@ -308,4 +308,47 @@ export class AuthService {
             ...tokens,
         };
     }
+
+    // Register with Magic Link (passwordless registration)
+    async registerWithMagicLink(email: string, name: string): Promise<{ message: string }> {
+        // Check if user already exists
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (existingUser) {
+            throw new ConflictException('อีเมลนี้มีผู้ใช้งานแล้ว กรุณาใช้ลิงก์ล้างรหัสผ่านแทน');
+        }
+
+        // Generate secure random token
+        const crypto = require('crypto');
+        const magicToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = await bcrypt.hash(magicToken, 10);
+
+        // Token expires in 24 hours (longer for registration)
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        // Create user with temporary random password (will be changed by user)
+        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        // Create user and store magic link token
+        await this.prisma.user.create({
+            data: {
+                email,
+                name,
+                password: hashedPassword,
+                magicLinkToken: hashedToken,
+                magicLinkExpires: expiresAt,
+            },
+        });
+
+        // Send registration magic link email
+        if (this.emailService.isConfigured()) {
+            await this.emailService.sendRegistrationMagicLinkEmail(email, magicToken, name);
+        }
+
+        return { message: 'เราได้ส่งลิงก์ยืนยันไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบอีเมลเพื่อเปิดใช้งานบัญชี' };
+    }
 }

@@ -1,6 +1,6 @@
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto';
-import { RequestPasswordResetDto, ResetPasswordDto, RequestMagicLinkDto } from './dto/email-auth.dto';
+import { RequestPasswordResetDto, ResetPasswordDto, RequestMagicLinkDto, MagicLinkRegisterDto } from './dto/email-auth.dto';
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
@@ -57,5 +57,8 @@ export declare class AuthController {
             name: string;
             role: import("@prisma/client").$Enums.Role;
         };
+    }>;
+    registerWithMagicLink(dto: MagicLinkRegisterDto): Promise<{
+        message: string;
     }>;
 }

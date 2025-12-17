@@ -1,13 +1,56 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Flag to prevent multiple refresh attempts at once
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
 interface RequestOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     body?: unknown;
     token?: string;
+    skipRefresh?: boolean; // Skip auto-refresh for auth endpoints
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+
+    if (!refreshToken) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+
+        // Save new tokens
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('refreshToken', data.refreshToken);
+        }
+
+        return data.accessToken;
+    } catch {
+        return null;
+    }
 }
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, token } = options;
+    const { method = 'GET', body, skipRefresh = false } = options;
+    let { token } = options;
+
+    // Auto-get token from localStorage if not provided
+    if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('accessToken') || undefined;
+    }
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -17,21 +60,40 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    let response = await fetch(`${API_URL}${endpoint}`, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (!response.ok) {
-        // Handle 401 Unauthorized - trigger logout
-        if (response.status === 401) {
-            // Dispatch custom event to trigger logout in AuthContext
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new Event('auth:unauthorized'));
-            }
+    // Handle 401 - try to refresh token
+    if (response.status === 401 && !skipRefresh && typeof window !== 'undefined') {
+        // Prevent multiple simultaneous refresh attempts
+        if (!isRefreshing) {
+            isRefreshing = true;
+            refreshPromise = refreshAccessToken();
         }
 
+        const newToken = await refreshPromise;
+        isRefreshing = false;
+        refreshPromise = null;
+
+        if (newToken) {
+            // Retry the original request with new token
+            headers['Authorization'] = `Bearer ${newToken}`;
+            response = await fetch(`${API_URL}${endpoint}`, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined,
+            });
+        } else {
+            // Refresh failed - trigger logout
+            window.dispatchEvent(new Event('auth:unauthorized'));
+            throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+        }
+    }
+
+    if (!response.ok) {
         const error = await response.json().catch(() => ({
             message: `HTTP ${response.status}: ${response.statusText}`
         }));
@@ -44,16 +106,16 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 // Auth API
 export const authApi = {
     register: (data: { email: string; password: string; name: string }) =>
-        request<{ user: User; accessToken: string; refreshToken: string }>('/auth/register', { method: 'POST', body: data }),
+        request<{ user: User; accessToken: string; refreshToken: string }>('/auth/register', { method: 'POST', body: data, skipRefresh: true }),
 
     login: (data: { email: string; password: string }) =>
-        request<{ user: User; accessToken: string; refreshToken: string }>('/auth/login', { method: 'POST', body: data }),
+        request<{ user: User; accessToken: string; refreshToken: string }>('/auth/login', { method: 'POST', body: data, skipRefresh: true }),
 
     getProfile: (token: string) =>
         request<User>('/auth/profile', { token }),
 
     refresh: (refreshToken: string) =>
-        request<{ accessToken: string; refreshToken: string }>('/auth/refresh', { method: 'POST', body: { refreshToken } }),
+        request<{ accessToken: string; refreshToken: string }>('/auth/refresh', { method: 'POST', body: { refreshToken }, skipRefresh: true }),
 };
 
 // Games API

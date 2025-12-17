@@ -138,3 +138,28 @@ model OrderItem {
 
   @@index([orderId])
 }
+
+model Banner {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  description String?
+  imageUrl    String?
+  bgColor     String   @default("from-purple-600 to-pink-600")
+  link        String   @default("/store")
+  buttonText  String   @default("SHOP NOW")
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SiteSettings {
+  id          String   @id @default("main")
+  storeName   String   @default("CDKeys Marketplace")
+  logoUrl     String?
+  faviconUrl  String?
+  tagline     String?  @default("Get your favorite games instantly")
+  primaryColor String? @default("#8b5cf6")
+  updatedAt   DateTime @updatedAt
+}

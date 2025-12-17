@@ -11,3 +11,7 @@ export declare class RequestMagicLinkDto {
 export declare class VerifyMagicLinkDto {
     token: string;
 }
+export declare class MagicLinkRegisterDto {
+    email: string;
+    name: string;
+}

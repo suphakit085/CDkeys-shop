@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyMagicLinkDto = exports.RequestMagicLinkDto = exports.ResetPasswordDto = exports.RequestPasswordResetDto = void 0;
+exports.MagicLinkRegisterDto = exports.VerifyMagicLinkDto = exports.RequestMagicLinkDto = exports.ResetPasswordDto = exports.RequestPasswordResetDto = void 0;
 const class_validator_1 = require("class-validator");
 class RequestPasswordResetDto {
     email;
@@ -49,4 +49,18 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], VerifyMagicLinkDto.prototype, "token", void 0);
+class MagicLinkRegisterDto {
+    email;
+    name;
+}
+exports.MagicLinkRegisterDto = MagicLinkRegisterDto;
+__decorate([
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], MagicLinkRegisterDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2, { message: 'Name must be at least 2 characters' }),
+    __metadata("design:type", String)
+], MagicLinkRegisterDto.prototype, "name", void 0);
 //# sourceMappingURL=email-auth.dto.js.map

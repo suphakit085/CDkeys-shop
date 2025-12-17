@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { gamesApi, Game, Platform } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
+import GameCard from '@/components/GameCard';
 
 const platformStyles: Record<Platform, string> = {
     STEAM: 'badge-steam',
@@ -19,6 +20,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     const { id } = use(params);
     const { addItem, items } = useCart();
     const [game, setGame] = useState<Game | null>(null);
+    const [relatedGames, setRelatedGames] = useState<Game[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [quantity, setQuantity] = useState(1);
     const [activeImage, setActiveImage] = useState(0);
@@ -36,10 +38,33 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
         try {
             const data = await gamesApi.getOne(id);
             setGame(data);
+            // Load related games
+            loadRelatedGames(data);
         } catch (error) {
             console.error('Failed to load game:', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const loadRelatedGames = async (currentGame: Game) => {
+        try {
+            // Get games from same platform or genre
+            const [samePlatform, sameGenre] = await Promise.all([
+                gamesApi.getAll({ platform: currentGame.platform }),
+                gamesApi.getAll({ genre: currentGame.genre }),
+            ]);
+
+            // Combine and deduplicate, exclude current game
+            const combined = [...samePlatform, ...sameGenre];
+            const unique = combined.filter((g, index, self) =>
+                g.id !== currentGame.id &&
+                self.findIndex(t => t.id === g.id) === index
+            ).slice(0, 4); // Show max 4 games
+
+            setRelatedGames(unique);
+        } catch (error) {
+            console.error('Failed to load related games:', error);
         }
     };
 
@@ -124,8 +149,8 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                                     key={index}
                                     onClick={() => setActiveImage(index)}
                                     className={`flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${activeImage === index
-                                            ? 'border-purple-500'
-                                            : 'border-transparent opacity-60 hover:opacity-100'
+                                        ? 'border-purple-500'
+                                        : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                 >
                                     <img src={img} alt="" className="w-full h-full object-cover" />
@@ -215,18 +240,25 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         {inStock && (
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-gray-400">Quantity</span>
-                                <select
-                                    value={quantity}
-                                    onChange={(e) => setQuantity(parseInt(e.target.value))}
-                                    className="input w-24 py-2 text-center"
-                                    disabled={maxQty <= 0}
-                                >
-                                    {Array.from({ length: Math.max(maxQty, 1) }, (_, i) => i + 1).map((num) => (
-                                        <option key={num} value={num}>
-                                            {num}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                        disabled={quantity <= 1}
+                                        className="w-10 h-10 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 text-white font-bold text-xl flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    >
+                                        −
+                                    </button>
+                                    <span className="w-14 h-10 flex items-center justify-center text-white font-bold text-lg bg-gray-800/50 rounded-lg">
+                                        {quantity}
+                                    </span>
+                                    <button
+                                        onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
+                                        disabled={quantity >= maxQty || maxQty <= 0}
+                                        className="w-10 h-10 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 text-white font-bold text-xl flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    >
+                                        +
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -263,6 +295,18 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                     </div>
                 </div>
             </div>
+
+            {/* Related Games */}
+            {relatedGames.length > 0 && (
+                <div className="mt-12">
+                    <h2 className="text-2xl font-bold text-white mb-6">🎮 เกมที่คุณอาจชอบ</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {relatedGames.map((relatedGame) => (
+                            <GameCard key={relatedGame.id} game={relatedGame} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

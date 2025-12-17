@@ -237,7 +237,7 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                     className={`btn-primary w-full py-4 text-lg ${!selectedFile || isUploading ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                 >
-                    {isUploading ? '⏳ กำลังอัปโหลด...' : '📤 อัปโหลดหลักฐาน'}
+                    {isUploading ? ' กำลังอัปโหลด...' : ' อัปโหลดหลักฐาน'}
                 </button>
             </div>
 

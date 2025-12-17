@@ -18,5 +18,6 @@ export declare class EmailService {
     sendCdKeysEmail(order: OrderDetails): Promise<boolean>;
     sendPasswordResetEmail(email: string, resetToken: string, userName: string): Promise<boolean>;
     sendMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean>;
+    sendRegistrationMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean>;
 }
 export {};

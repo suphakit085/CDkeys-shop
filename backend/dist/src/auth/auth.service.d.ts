@@ -58,4 +58,7 @@ export declare class AuthService {
             role: import("@prisma/client").$Enums.Role;
         };
     }>;
+    registerWithMagicLink(email: string, name: string): Promise<{
+        message: string;
+    }>;
 }

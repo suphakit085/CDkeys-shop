@@ -303,6 +303,78 @@ let EmailService = EmailService_1 = class EmailService {
             return false;
         }
     }
+    async sendRegistrationMagicLinkEmail(email, magicToken, userName) {
+        if (!this.isConfigured()) {
+            this.logger.warn('Email not configured, skipping registration magic link email');
+            return false;
+        }
+        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
+        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const verifyLink = `${frontendUrl}/magic-login/${magicToken}`;
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>ยินดีต้อนรับ</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h1 style="color: #7c3aed; margin: 0 0 24px 0; text-align: center;">
+                    🎮 ${storeName}
+                </h1>
+                
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+                    <h2 style="margin: 0; font-size: 20px;">🎉 ยินดีต้อนรับ!</h2>
+                </div>
+                
+                <p style="color: #374151;">สวัสดีคุณ <strong>${userName}</strong>,</p>
+                
+                <p style="color: #374151;">ขอบคุณที่สมัครใช้งาน ${storeName}! คลิกปุ่มด้านล่างเพื่อเปิดใช้งานบัญชีและเริ่มช้อปปิ้ง:</p>
+                
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="${verifyLink}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                        🚀 เปิดใช้งานบัญชี
+                    </a>
+                </div>
+                
+                <p style="color: #6b7280; font-size: 14px;">หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
+                <p style="background-color: #f3f4f6; padding: 12px; border-radius: 6px; word-break: break-all; font-size: 14px; color: #4b5563;">
+                    ${verifyLink}
+                </p>
+                
+                <div style="background-color: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                    <p style="margin: 0; color: #1e40af; font-size: 14px;">
+                        <strong>ℹ️ หมายเหตุ:</strong> ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง<br>
+                        หลังจากเปิดใช้งานแล้ว คุณสามารถตั้งรหัสผ่านได้ในหน้าโปรไฟล์
+                    </p>
+                </div>
+                
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                
+                <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0;">
+                    ขอบคุณที่ใช้บริการ ${storeName} 🎉
+                </p>
+            </div>
+        </body>
+        </html>
+        `;
+        try {
+            await this.transporter.sendMail({
+                from: `"${storeName}" <${fromEmail}>`,
+                to: email,
+                subject: `🎉 ยินดีต้อนรับสู่ ${storeName} - เปิดใช้งานบัญชีของคุณ`,
+                html,
+            });
+            this.logger.log(`Registration magic link email sent to ${email}`);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Failed to send registration magic link email to ${email}:`, error);
+            return false;
+        }
+    }
 };
 exports.EmailService = EmailService;
 exports.EmailService = EmailService = EmailService_1 = __decorate([

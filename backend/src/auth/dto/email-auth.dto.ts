@@ -23,3 +23,13 @@ export class VerifyMagicLinkDto {
     @IsString()
     token: string;
 }
+
+export class MagicLinkRegisterDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    @MinLength(2, { message: 'Name must be at least 2 characters' })
+    name: string;
+}
+

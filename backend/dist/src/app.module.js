@@ -16,6 +16,9 @@ const keys_module_1 = require("./keys/keys.module");
 const orders_module_1 = require("./orders/orders.module");
 const payment_module_1 = require("./payment/payment.module");
 const email_module_1 = require("./email/email.module");
+const banners_module_1 = require("./banners/banners.module");
+const settings_module_1 = require("./settings/settings.module");
+const cloudinary_module_1 = require("./cloudinary/cloudinary.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -26,12 +29,15 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
             }),
             prisma_module_1.PrismaModule,
+            cloudinary_module_1.CloudinaryModule,
             email_module_1.EmailModule,
             auth_module_1.AuthModule,
             games_module_1.GamesModule,
             keys_module_1.KeysModule,
             orders_module_1.OrdersModule,
             payment_module_1.PaymentModule,
+            banners_module_1.BannersModule,
+            settings_module_1.SettingsModule,
         ],
     })
 ], AppModule);

@@ -47,6 +47,9 @@ let AuthController = class AuthController {
     async verifyMagicLink(token) {
         return this.authService.verifyMagicLink(token);
     }
+    async registerWithMagicLink(dto) {
+        return this.authService.registerWithMagicLink(dto.email, dto.name);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -106,6 +109,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyMagicLink", null);
+__decorate([
+    (0, common_1.Post)('register-magic-link'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [email_auth_dto_1.MagicLinkRegisterDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "registerWithMagicLink", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

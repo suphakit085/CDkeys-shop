@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,8 +11,13 @@ export default function MagicLoginPage() {
     const { login: contextLogin } = useAuth();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('');
+    const hasVerified = useRef(false);
 
     useEffect(() => {
+        // Prevent double execution in React Strict Mode
+        if (hasVerified.current) return;
+        hasVerified.current = true;
+
         const verifyMagicLink = async () => {
             try {
                 const response = await fetch(`http://localhost:3001/api/auth/verify-magic-link/${token}`);

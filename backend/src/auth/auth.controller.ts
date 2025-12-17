@@ -13,7 +13,8 @@ import {
     RequestPasswordResetDto,
     ResetPasswordDto,
     RequestMagicLinkDto,
-    VerifyMagicLinkDto
+    VerifyMagicLinkDto,
+    MagicLinkRegisterDto
 } from './dto/email-auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -62,5 +63,11 @@ export class AuthController {
     @Get('verify-magic-link/:token')
     async verifyMagicLink(@Param('token') token: string) {
         return this.authService.verifyMagicLink(token);
+    }
+
+    // Magic Link Registration
+    @Post('register-magic-link')
+    async registerWithMagicLink(@Body() dto: MagicLinkRegisterDto) {
+        return this.authService.registerWithMagicLink(dto.email, dto.name);
     }
 }

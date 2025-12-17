@@ -274,6 +274,34 @@ let AuthService = class AuthService {
             ...tokens,
         };
     }
+    async registerWithMagicLink(email, name) {
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email },
+        });
+        if (existingUser) {
+            throw new common_1.ConflictException('อีเมลนี้มีผู้ใช้งานแล้ว กรุณาใช้ลิงก์ล้างรหัสผ่านแทน');
+        }
+        const crypto = require('crypto');
+        const magicToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = await bcrypt.hash(magicToken, 10);
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        await this.prisma.user.create({
+            data: {
+                email,
+                name,
+                password: hashedPassword,
+                magicLinkToken: hashedToken,
+                magicLinkExpires: expiresAt,
+            },
+        });
+        if (this.emailService.isConfigured()) {
+            await this.emailService.sendRegistrationMagicLinkEmail(email, magicToken, name);
+        }
+        return { message: 'เราได้ส่งลิงก์ยืนยันไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบอีเมลเพื่อเปิดใช้งานบัญชี' };
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

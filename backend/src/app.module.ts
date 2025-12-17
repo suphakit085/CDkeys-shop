@@ -7,6 +7,9 @@ import { KeysModule } from './keys/keys.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentModule } from './payment/payment.module';
 import { EmailModule } from './email/email.module';
+import { BannersModule } from './banners/banners.module';
+import { SettingsModule } from './settings/settings.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -14,13 +17,18 @@ import { EmailModule } from './email/email.module';
       isGlobal: true,
     }),
     PrismaModule,
+    CloudinaryModule,
     EmailModule,
     AuthModule,
     GamesModule,
     KeysModule,
     OrdersModule,
     PaymentModule,
+    BannersModule,
+    SettingsModule,
   ],
 })
 export class AppModule { }
+
+
 

@@ -65,6 +65,12 @@ export default function AdminDashboard() {
                     Admin Dashboard
                 </h1>
                 <div className="flex gap-4">
+                    <Link href="/admin/settings" className="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 py-2 px-4 rounded-lg transition-colors">
+                        ⚙️ ตั้งค่าร้าน
+                    </Link>
+                    <Link href="/admin/banners" className="bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/50 text-pink-400 py-2 px-4 rounded-lg transition-colors">
+                        🎠 จัดการแบนเนอร์
+                    </Link>
                     <Link href="/admin/verify-payments" className="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-400 py-2 px-4 rounded-lg transition-colors">
                         💳 ตรวจสอบชำระเงิน
                     </Link>
