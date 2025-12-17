@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum KeyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentMethod {
+  PROMPTPAY
+  CREDIT_CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  SLIP_UPLOADED
+  VERIFIED
+  REJECTED
+}
+
+enum Platform {
+  STEAM
+  PLAYSTATION
+  XBOX
+  NINTENDO
+  ORIGIN
+  UPLAY
+  EPIC
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Password reset fields
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  
+  // Magic link login fields
+  magicLinkToken       String?
+  magicLinkExpires     DateTime?
+  
+  orders    Order[]
+}
+
+model Game {
+  id                 String     @id @default(uuid())
+  title              String
+  description        String?
+  platform           Platform
+  genre              String
+  price              Decimal    @db.Decimal(10, 2)
+  imageUrl           String?
+  developer          String?
+  publisher          String?
+  releaseDate        DateTime?
+  systemRequirements String?
+  screenshots        String[]   @default([])
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  cdKeys             CdKey[]
+  orderItems         OrderItem[]
+}
+
+model CdKey {
+  id          String    @id @default(uuid())
+  gameId      String
+  game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  keyCode     String
+  status      KeyStatus @default(AVAILABLE)
+  reservedAt  DateTime?
+  orderItemId String?   @unique
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([gameId])
+  @@index([status])
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  total            Decimal       @db.Decimal(10, 2)
+  status           OrderStatus  @default(PENDING)
+  paymentMethod    PaymentMethod @default(PROMPTPAY)
+  paymentStatus    PaymentStatus @default(PENDING)
+  paymentSlipUrl   String?
+  qrCodeData       String?       @db.Text
+  promptpayRef     String?
+  paidAt           DateTime?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  orderItems       OrderItem[]
+
+  @@index([userId])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id])
+  price     Decimal  @db.Decimal(10, 2)
+  cdKey     CdKey?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}

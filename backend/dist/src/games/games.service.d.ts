@@ -1,0 +1,98 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
+import { Platform } from '@prisma/client';
+export declare class GamesService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    findAll(filters?: {
+        platform?: Platform;
+        genre?: string;
+        minPrice?: number;
+        maxPrice?: number;
+        search?: string;
+    }): Promise<{
+        availableKeys: number;
+        _count: undefined;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
+        price: import("@prisma/client/runtime/library").Decimal;
+        imageUrl: string | null;
+        developer: string | null;
+        publisher: string | null;
+        releaseDate: Date | null;
+        systemRequirements: string | null;
+        screenshots: string[];
+    }[]>;
+    findOne(id: string): Promise<{
+        availableKeys: number;
+        _count: undefined;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
+        price: import("@prisma/client/runtime/library").Decimal;
+        imageUrl: string | null;
+        developer: string | null;
+        publisher: string | null;
+        releaseDate: Date | null;
+        systemRequirements: string | null;
+        screenshots: string[];
+    }>;
+    create(dto: CreateGameDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
+        price: import("@prisma/client/runtime/library").Decimal;
+        imageUrl: string | null;
+        developer: string | null;
+        publisher: string | null;
+        releaseDate: Date | null;
+        systemRequirements: string | null;
+        screenshots: string[];
+    }>;
+    update(id: string, dto: UpdateGameDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
+        price: import("@prisma/client/runtime/library").Decimal;
+        imageUrl: string | null;
+        developer: string | null;
+        publisher: string | null;
+        releaseDate: Date | null;
+        systemRequirements: string | null;
+        screenshots: string[];
+    }>;
+    delete(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
+        price: import("@prisma/client/runtime/library").Decimal;
+        imageUrl: string | null;
+        developer: string | null;
+        publisher: string | null;
+        releaseDate: Date | null;
+        systemRequirements: string | null;
+        screenshots: string[];
+    }>;
+    getGenres(): Promise<string[]>;
+}
