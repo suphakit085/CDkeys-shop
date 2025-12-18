@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/config';
 
 interface SiteSettings {
     storeName: string;
@@ -19,7 +20,7 @@ export default function Navbar() {
     const [settings, setSettings] = useState<SiteSettings | null>(null);
 
     useEffect(() => {
-        fetch('http://localhost:3001/api/settings')
+        fetch(`${API_URL}/settings`)
             .then(res => res.json())
             .then(data => setSettings(data))
             .catch(() => { });

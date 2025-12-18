@@ -367,4 +367,197 @@ export class EmailService {
             return false;
         }
     }
+
+    async sendNewOrderNotification(order: OrderDetails): Promise<boolean> {
+        if (!this.transporter) {
+            this.logger.warn('Email not configured - skipping order notification');
+            return false;
+        }
+
+        const storeEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
+
+        if (!storeEmail) {
+            this.logger.warn('Store email not configured');
+            return false;
+        }
+
+        const itemsHtml = order.items.map(item => `
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                    <strong>${item.gameTitle}</strong>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                    ${item.platform}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace;">
+                    ${item.cdKey}
+                </td>
+            </tr>
+        `).join('');
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>คำสั่งซื้อใหม่</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h1 style="color: #059669; margin: 0 0 24px 0; text-align: center;">
+                    💰 ${storeName}
+                </h1>
+                
+                <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+                    <h2 style="margin: 0; font-size: 20px;">🔔 คำสั่งซื้อใหม่!</h2>
+                </div>
+                
+                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <p style="margin: 0; color: #166534;"><strong>Order ID:</strong> ${order.orderId}</p>
+                    <p style="margin: 8px 0 0 0; color: #166534;"><strong>ลูกค้า:</strong> ${order.customerName}</p>
+                    <p style="margin: 8px 0 0 0; color: #166534;"><strong>อีเมล:</strong> ${order.customerEmail}</p>
+                </div>
+                
+                <h3 style="color: #374151; margin-bottom: 16px;">รายการสินค้า:</h3>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                    <thead>
+                        <tr style="background-color: #f3f4f6;">
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">เกม</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">แพลตฟอร์ม</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">CD Key</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+                
+                <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
+                    <p style="margin: 0; font-size: 18px;">💵 ยอดรวม: <strong>฿${order.total.toFixed(2)}</strong></p>
+                </div>
+                
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
+                    <p>อีเมลนี้ส่งอัตโนมัติจากระบบ ${storeName}</p>
+                    <p>เวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await this.transporter.sendMail({
+                from: `"${storeName}" <${storeEmail}>`,
+                to: storeEmail,
+                subject: `🔔 คำสั่งซื้อใหม่! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`,
+                html,
+            });
+
+            this.logger.log(`New order notification sent to store: ${storeEmail}`);
+            return true;
+        } catch (error) {
+            this.logger.error(`Failed to send order notification:`, error);
+            return false;
+        }
+    }
+
+    async sendPendingPaymentNotification(order: {
+        orderId: string;
+        customerEmail: string;
+        customerName: string;
+        total: number;
+        slipUrl: string;
+        items: Array<{ gameTitle: string; platform: string }>;
+    }): Promise<boolean> {
+        if (!this.transporter) {
+            this.logger.warn('Email not configured - skipping pending payment notification');
+            return false;
+        }
+
+        const storeEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        if (!storeEmail) {
+            this.logger.warn('Store email not configured');
+            return false;
+        }
+
+        const itemsHtml = order.items.map(item => `
+            <li style="padding: 8px 0; border-bottom: 1px solid #fef3c7;">
+                <strong>${item.gameTitle}</strong> - ${item.platform}
+            </li>
+        `).join('');
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>รอตรวจสอบการชำระเงิน</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h1 style="color: #d97706; margin: 0 0 24px 0; text-align: center;">
+                    ⏳ ${storeName}
+                </h1>
+                
+                <div style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+                    <h2 style="margin: 0; font-size: 20px;">🔔 รอตรวจสอบการชำระเงิน!</h2>
+                </div>
+                
+                <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <p style="margin: 0; color: #92400e;"><strong>⚠️ มีลูกค้าอัพโหลดสลิปใหม่!</strong></p>
+                    <p style="margin: 8px 0 0 0; color: #92400e;">กรุณาตรวจสอบและอนุมัติเพื่อส่ง CD Keys ให้ลูกค้า</p>
+                </div>
+                
+                <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <p style="margin: 0; color: #374151;"><strong>Order ID:</strong> ${order.orderId}</p>
+                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>ลูกค้า:</strong> ${order.customerName}</p>
+                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>อีเมล:</strong> ${order.customerEmail}</p>
+                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>ยอดรวม:</strong> <span style="color: #059669; font-weight: bold;">฿${order.total.toFixed(2)}</span></p>
+                </div>
+                
+                <h3 style="color: #374151; margin-bottom: 12px;">📦 รายการสินค้า:</h3>
+                <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; background-color: #fffbeb; border-radius: 8px; overflow: hidden;">
+                    ${itemsHtml}
+                </ul>
+                
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <p style="color: #6b7280; margin-bottom: 16px;">📎 สลิปการชำระเงิน:</p>
+                    <a href="${order.slipUrl}" style="display: inline-block; color: #7c3aed; text-decoration: underline;">ดูสลิป</a>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="${frontendUrl}/admin/verify-payments" style="display: inline-block; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                        ✅ ไปตรวจสอบเลย
+                    </a>
+                </div>
+                
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
+                    <p>อีเมลนี้ส่งอัตโนมัติจากระบบ ${storeName}</p>
+                    <p>เวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await this.transporter.sendMail({
+                from: `"${storeName}" <${storeEmail}>`,
+                to: storeEmail,
+                subject: `⏳ รอตรวจสอบ! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`,
+                html,
+            });
+
+            this.logger.log(`Pending payment notification sent to store: ${storeEmail}`);
+            return true;
+        } catch (error) {
+            this.logger.error(`Failed to send pending payment notification:`, error);
+            return false;
+        }
+    }
 }

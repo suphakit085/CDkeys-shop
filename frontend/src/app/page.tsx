@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { gamesApi, Game, Platform } from '@/lib/api';
+import { API_URL } from '@/lib/config';
 import GameCard from '@/components/GameCard';
 
 interface Banner {
@@ -87,7 +88,7 @@ export default function HomePage() {
 
   const loadBanners = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/banners');
+      const response = await fetch(`${API_URL}/banners`);
       const data = await response.json();
       if (data && data.length > 0) {
         setBanners(data);
@@ -133,10 +134,10 @@ export default function HomePage() {
             <div
               key={banner.id}
               className={`absolute inset-0 transition-all duration-700 ease-in-out ${index === currentBanner
-                  ? 'opacity-100 translate-x-0'
-                  : index < currentBanner
-                    ? 'opacity-0 -translate-x-full'
-                    : 'opacity-0 translate-x-full'
+                ? 'opacity-100 translate-x-0'
+                : index < currentBanner
+                  ? 'opacity-0 -translate-x-full'
+                  : 'opacity-0 translate-x-full'
                 }`}
             >
               {banner.imageUrl ? (
@@ -286,7 +287,7 @@ export default function HomePage() {
         {/* Section Title */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-white">
-             เกมทั้งหมด
+            เกมทั้งหมด
           </h2>
           <span className="text-gray-400">{games.length} เกม</span>
         </div>

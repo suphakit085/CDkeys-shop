@@ -84,6 +84,41 @@ let PaymentService = PaymentService_1 = class PaymentService {
                             verifiedAt: new Date(),
                         },
                     });
+                    const completedOrder = await this.prisma.order.findUnique({
+                        where: { id: orderId },
+                        include: {
+                            user: true,
+                            orderItems: {
+                                include: {
+                                    game: true,
+                                    cdKey: true,
+                                },
+                            },
+                        },
+                    });
+                    if (completedOrder && completedOrder.user && this.emailService.isConfigured()) {
+                        const emailItems = completedOrder.orderItems
+                            .filter(item => item.cdKey)
+                            .map(item => ({
+                            gameTitle: item.game.title,
+                            platform: item.game.platform,
+                            cdKey: item.cdKey.keyCode,
+                        }));
+                        await this.emailService.sendCdKeysEmail({
+                            orderId: completedOrder.id,
+                            customerEmail: completedOrder.user.email,
+                            customerName: completedOrder.user.name,
+                            items: emailItems,
+                            total: Number(completedOrder.total),
+                        });
+                        await this.emailService.sendNewOrderNotification({
+                            orderId: completedOrder.id,
+                            customerEmail: completedOrder.user.email,
+                            customerName: completedOrder.user.name,
+                            items: emailItems,
+                            total: Number(completedOrder.total),
+                        });
+                    }
                     return {
                         autoVerified: true,
                         message: 'ชำระเงินสำเร็จ! ระบบตรวจสอบยอดเงินถูกต้อง',
@@ -103,16 +138,45 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 }
             }
             else {
+                await this.notifyAdminPendingPayment(orderId, slipUrl);
                 return {
                     autoVerified: false,
                     message: verification.message || 'รอ admin ตรวจสอบ',
                 };
             }
         }
+        await this.notifyAdminPendingPayment(orderId, slipUrl);
         return {
             autoVerified: false,
             message: 'อัปโหลดสลิปสำเร็จ รอ admin ตรวจสอบ',
         };
+    }
+    async notifyAdminPendingPayment(orderId, slipUrl) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: true,
+                orderItems: {
+                    include: {
+                        game: true,
+                    },
+                },
+            },
+        });
+        if (order && order.user && this.emailService.isConfigured()) {
+            const items = order.orderItems.map(item => ({
+                gameTitle: item.game.title,
+                platform: item.game.platform,
+            }));
+            await this.emailService.sendPendingPaymentNotification({
+                orderId: order.id,
+                customerEmail: order.user.email,
+                customerName: order.user.name,
+                total: Number(order.total),
+                slipUrl,
+                items,
+            });
+        }
     }
     async verifyPayment(orderId, adminId) {
         const order = await this.prisma.order.findUnique({
@@ -170,6 +234,13 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 cdKey: item.cdKey.keyCode,
             }));
             await this.emailService.sendCdKeysEmail({
+                orderId: fullOrder.id,
+                customerEmail: fullOrder.user.email,
+                customerName: fullOrder.user.name,
+                items: emailItems,
+                total: Number(fullOrder.total),
+            });
+            await this.emailService.sendNewOrderNotification({
                 orderId: fullOrder.id,
                 customerEmail: fullOrder.user.email,
                 customerName: fullOrder.user.name,

@@ -17,6 +17,7 @@ export declare class PaymentService {
     constructor(prisma: PrismaService, slipOkService: SlipOkService, emailService: EmailService);
     generatePromptPayQR(amount: number, orderId: string): Promise<string>;
     uploadPaymentSlip(orderId: string, slipUrl: string): Promise<SlipUploadResult>;
+    private notifyAdminPendingPayment;
     verifyPayment(orderId: string, adminId: string): Promise<void>;
     rejectPayment(orderId: string, adminId: string, reason?: string): Promise<void>;
     getPendingPayments(): Promise<({

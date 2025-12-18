@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import { API_URL } from './config';
 
 // Flag to prevent multiple refresh attempts at once
 let isRefreshing = false;

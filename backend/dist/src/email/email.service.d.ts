@@ -19,5 +19,17 @@ export declare class EmailService {
     sendPasswordResetEmail(email: string, resetToken: string, userName: string): Promise<boolean>;
     sendMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean>;
     sendRegistrationMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean>;
+    sendNewOrderNotification(order: OrderDetails): Promise<boolean>;
+    sendPendingPaymentNotification(order: {
+        orderId: string;
+        customerEmail: string;
+        customerName: string;
+        total: number;
+        slipUrl: string;
+        items: Array<{
+            gameTitle: string;
+            platform: string;
+        }>;
+    }): Promise<boolean>;
 }
 export {};
