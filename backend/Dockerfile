@@ -10,10 +10,13 @@ RUN npm ci
 # Copy prisma schema
 COPY prisma ./prisma/
 
+# Generate Prisma Client (needs dummy DATABASE_URL for build)
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
+
 # Copy all source
 COPY . .
 
-# Build
+# Build TypeScript
 RUN npm run build
 
 # Create uploads directory
@@ -21,5 +24,5 @@ RUN mkdir -p uploads/slips uploads/banners uploads/settings
 
 EXPOSE 3001
 
-# Run migrations and start (Prisma generate happens at runtime)
-CMD npx prisma generate && npx prisma migrate deploy && npm run start:prod
+# Run migrations and start
+CMD npx prisma migrate deploy && npm run start:prod
