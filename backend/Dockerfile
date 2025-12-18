@@ -5,13 +5,12 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
+RUN npm ci
+
+# Copy prisma schema
 COPY prisma ./prisma/
-RUN npm ci --only=production
 
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Copy source
+# Copy all source
 COPY . .
 
 # Build
@@ -22,4 +21,5 @@ RUN mkdir -p uploads/slips uploads/banners uploads/settings
 
 EXPOSE 3001
 
-CMD ["npm", "run", "start:prod"]
+# Run migrations and start (Prisma generate happens at runtime)
+CMD npx prisma generate && npx prisma migrate deploy && npm run start:prod
