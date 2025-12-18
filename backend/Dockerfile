@@ -3,9 +3,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (including devDependencies for build)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy prisma schema
 COPY prisma ./prisma/
@@ -22,7 +22,10 @@ RUN npm run build
 # Create uploads directory
 RUN mkdir -p uploads/slips uploads/banners uploads/settings
 
+# Verify dist folder exists
+RUN ls -la dist/
+
 EXPOSE 3001
 
 # Run migrations and start
-CMD npx prisma migrate deploy && npm run start:prod
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
