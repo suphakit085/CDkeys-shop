@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL, BACKEND_URL } from '@/lib/config';
 
 interface SiteSettings {
     id: string;
@@ -34,7 +35,7 @@ export default function AdminSettingsPage() {
 
     const loadSettings = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/settings');
+            const response = await fetch(`${API_URL}/settings`);
             const data = await response.json();
             setSettings(data);
             setStoreName(data.storeName || '');
@@ -56,7 +57,7 @@ export default function AdminSettingsPage() {
 
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:3001/api/settings', {
+            const response = await fetch(`${API_URL}/settings`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ export default function AdminSettingsPage() {
             const formData = new FormData();
             formData.append('logo', file);
 
-            const response = await fetch('http://localhost:3001/api/settings/upload-logo', {
+            const response = await fetch(`${API_URL}/settings/upload-logo`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData,
@@ -102,7 +103,7 @@ export default function AdminSettingsPage() {
 
             if (response.ok) {
                 const data = await response.json();
-                setLogoUrl(`http://localhost:3001${data.url}`);
+                setLogoUrl(`${BACKEND_URL}${data.url}`);
             } else {
                 setError('อัพโหลดโลโก้ไม่สำเร็จ');
             }

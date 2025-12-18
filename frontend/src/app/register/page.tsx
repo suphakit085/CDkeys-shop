@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
+import { API_URL } from '@/lib/config';
 
 export default function RegisterPage() {
     const [mode, setMode] = useState<'password' | 'magic'>('password');
@@ -59,7 +60,7 @@ export default function RegisterPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:3001/api/auth/register-magic-link', {
+            const response = await fetch(`${API_URL}/auth/register-magic-link`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, name }),
@@ -97,8 +98,8 @@ export default function RegisterPage() {
                         type="button"
                         onClick={() => setMode('password')}
                         className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${mode === 'password'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         📝 ใช้รหัสผ่าน
@@ -107,8 +108,8 @@ export default function RegisterPage() {
                         type="button"
                         onClick={() => setMode('magic')}
                         className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${mode === 'magic'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         ✨ ใช้ลิงก์อีเมล

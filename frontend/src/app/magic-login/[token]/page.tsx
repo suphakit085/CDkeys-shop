@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL } from '@/lib/config';
 
 export default function MagicLoginPage() {
     const params = useParams();
@@ -20,7 +21,7 @@ export default function MagicLoginPage() {
 
         const verifyMagicLink = async () => {
             try {
-                const response = await fetch(`http://localhost:3001/api/auth/verify-magic-link/${token}`);
+                const response = await fetch(`${API_URL}/auth/verify-magic-link/${token}`);
                 const data = await response.json();
 
                 if (response.ok) {

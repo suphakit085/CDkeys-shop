@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL } from '@/lib/config';
 
 export default function LoginPage() {
     const [mode, setMode] = useState<'password' | 'magic'>('password');
@@ -37,7 +38,7 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:3001/api/auth/send-magic-link', {
+            const response = await fetch(`${API_URL}/auth/send-magic-link`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }),
@@ -74,21 +75,21 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => { setMode('password'); setError(''); setSuccess(''); }}
                         className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${mode === 'password'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                         รหัสผ่าน
+                        รหัสผ่าน
                     </button>
                     <button
                         type="button"
                         onClick={() => { setMode('magic'); setError(''); setSuccess(''); }}
                         className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${mode === 'magic'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                         ลิงก์อีเมล
+                        ลิงก์อีเมล
                     </button>
                 </div>
 
@@ -153,7 +154,7 @@ export default function LoginPage() {
                     <form onSubmit={handleMagicLinkSubmit} className="space-y-6">
                         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-4">
                             <p className="text-sm text-purple-300">
-                                 <strong>เข้าสู่ระบบด้วยลิงก์</strong><br />
+                                <strong>เข้าสู่ระบบด้วยลิงก์</strong><br />
                                 ไม่ต้องจำรหัสผ่าน! เราจะส่งลิงก์ไปที่อีเมลของคุณ
                             </p>
                         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { paymentApi, PendingPayment } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { BACKEND_URL } from '@/lib/config';
 
 export default function VerifyPaymentsPage() {
     const { token, isAdmin, isLoading: authLoading } = useAuth();
@@ -139,13 +140,13 @@ export default function VerifyPaymentsPage() {
                                 <div className="lg:w-48">
                                     {payment.paymentSlipUrl ? (
                                         <a
-                                            href={`http://localhost:3001${payment.paymentSlipUrl}`}
+                                            href={`${BACKEND_URL}${payment.paymentSlipUrl}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block"
                                         >
                                             <img
-                                                src={`http://localhost:3001${payment.paymentSlipUrl}`}
+                                                src={`${BACKEND_URL}${payment.paymentSlipUrl}`}
                                                 alt="Payment Slip"
                                                 className="w-full rounded-lg border border-gray-600 hover:border-purple-500 transition-colors"
                                             />

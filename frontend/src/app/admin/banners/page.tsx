@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL, BACKEND_URL } from '@/lib/config';
 
 interface Banner {
     id: string;
@@ -53,7 +54,7 @@ export default function AdminBannersPage() {
     const loadBanners = async () => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:3001/api/banners/admin', {
+            const response = await fetch(`${API_URL}/banners/admin`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
@@ -100,8 +101,8 @@ export default function AdminBannersPage() {
         try {
             const token = localStorage.getItem('accessToken');
             const url = editingBanner
-                ? `http://localhost:3001/api/banners/${editingBanner.id}`
-                : 'http://localhost:3001/api/banners';
+                ? `${API_URL}/banners/${editingBanner.id}`
+                : `${API_URL}/banners`;
 
             const response = await fetch(url, {
                 method: editingBanner ? 'PUT' : 'POST',
@@ -141,7 +142,7 @@ export default function AdminBannersPage() {
 
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:3001/api/banners/${id}`, {
+            const response = await fetch(`${API_URL}/banners/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -167,7 +168,7 @@ export default function AdminBannersPage() {
             const formData = new FormData();
             formData.append('image', file);
 
-            const response = await fetch('http://localhost:3001/api/banners/upload-image', {
+            const response = await fetch(`${API_URL}/banners/upload-image`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData,
@@ -175,7 +176,7 @@ export default function AdminBannersPage() {
 
             if (response.ok) {
                 const data = await response.json();
-                setImageUrl(`http://localhost:3001${data.url}`);
+                setImageUrl(`${BACKEND_URL}${data.url}`);
             } else {
                 setError('อัพโหลดรูปภาพไม่สำเร็จ');
             }
