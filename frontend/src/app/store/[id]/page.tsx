@@ -106,7 +106,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     if (!game) {
         return (
             <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-                <div className="text-6xl mb-6">🎮</div>
+                <div className="text-6xl mb-6"></div>
                 <h1 className="text-3xl font-bold text-white mb-4">Game not found</h1>
                 <p className="text-gray-400 mb-8">The game you're looking for doesn't exist.</p>
                 <Link href="/store" className="btn-primary py-3 px-8">
@@ -129,27 +129,29 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                 </Link>
             </nav>
 
-            <div className="grid lg:grid-cols-3 gap-8">
-                {/* Left Column - Images */}
-                <div className="lg:col-span-2">
-                    {/* Main Image */}
-                    <div className="glass-card overflow-hidden rounded-2xl mb-4">
-                        <img
-                            src={allImages[activeImage] || '/placeholder-game.jpg'}
-                            alt={game.title}
-                            className="w-full h-auto aspect-video object-cover"
-                        />
+            <div className="grid lg:grid-cols-2 gap-8">
+                {/* Left Column - Portrait Image */}
+                <div>
+                    {/* Main Image - Portrait Style */}
+                    <div className="glass-card overflow-hidden rounded-2xl">
+                        <div className="relative aspect-[2/3] w-full">
+                            <img
+                                src={allImages[activeImage] || '/placeholder-game.jpg'}
+                                alt={game.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        </div>
                     </div>
 
                     {/* Thumbnails */}
                     {allImages.length > 1 && (
-                        <div className="flex gap-2 overflow-x-auto pb-2">
+                        <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
                             {allImages.map((img, index) => (
                                 <button
                                     key={index}
                                     onClick={() => setActiveImage(index)}
-                                    className={`flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${activeImage === index
-                                        ? 'border-purple-500'
+                                    className={`flex-shrink-0 w-16 h-24 rounded-lg overflow-hidden border-2 transition-all ${activeImage === index
+                                        ? 'border-purple-500 ring-2 ring-purple-500/50'
                                         : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                 >
@@ -274,22 +276,22 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             className={`btn-primary w-full py-4 text-lg ${!inStock || maxQty <= 0 ? 'opacity-50 cursor-not-allowed' : ''
                                 }`}
                         >
-                            {!inStock ? '🚫 Out of Stock' : maxQty <= 0 ? '✓ Max in Cart' : '🛒 Add to Cart'}
+                            {!inStock ? ' Out of Stock' : maxQty <= 0 ? '✓ Max in Cart' : ' Add to Cart'}
                         </button>
                     </div>
 
                     {/* Features */}
                     <div className="space-y-3">
                         <div className="flex items-center gap-3 text-gray-300">
-                            <span className="text-xl">⚡</span>
+
                             <span>Instant digital delivery</span>
                         </div>
                         <div className="flex items-center gap-3 text-gray-300">
-                            <span className="text-xl">🔒</span>
+
                             <span>Verified authentic key</span>
                         </div>
                         <div className="flex items-center gap-3 text-gray-300">
-                            <span className="text-xl">🎮</span>
+
                             <span>Activate on {game.platform}</span>
                         </div>
                     </div>
@@ -299,7 +301,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
             {/* Related Games */}
             {relatedGames.length > 0 && (
                 <div className="mt-12">
-                    <h2 className="text-2xl font-bold text-white mb-6">🎮 เกมที่คุณอาจชอบ</h2>
+                    <h2 className="text-2xl font-bold text-white mb-6"> เกมที่คุณอาจชอบ</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {relatedGames.map((relatedGame) => (
                             <GameCard key={relatedGame.id} game={relatedGame} />
