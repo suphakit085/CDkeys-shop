@@ -246,17 +246,23 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                 <h3 className="font-bold text-white mb-4">รายการสินค้า</h3>
                 <div className="space-y-3">
                     {order.orderItems.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3">
-                            <img
-                                src={item.game.imageUrl || '/placeholder-game.jpg'}
-                                alt={item.game.title}
-                                className="w-12 h-12 rounded-lg object-cover"
-                            />
-                            <div className="flex-1">
-                                <p className="text-white text-sm">{item.game.title}</p>
+                        <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-800/30">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-purple-600/30 flex items-center justify-center flex-shrink-0">
+                                {item.game.imageUrl ? (
+                                    <img
+                                        src={item.game.imageUrl}
+                                        alt={item.game.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-xl">🎮</span>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm truncate">{item.game.title}</p>
                                 <p className="text-gray-400 text-xs">{item.game.platform}</p>
                             </div>
-                            <p className="text-white">฿{Number(item.price).toFixed(2)}</p>
+                            <p className="text-white font-medium">฿{Number(item.price).toFixed(2)}</p>
                         </div>
                     ))}
                 </div>
