@@ -17,19 +17,31 @@ interface OrderDetails {
 export class EmailService {
     private readonly logger = new Logger(EmailService.name);
     private transporter: nodemailer.Transporter | null = null;
+    private resendApiKey: string | null = null;
+    private useResend: boolean = false;
 
     constructor() {
         this.initializeTransporter();
     }
 
     private initializeTransporter() {
+        // Check for Resend API first (preferred for cloud platforms)
+        const resendKey = process.env.RESEND_API_KEY;
+        if (resendKey) {
+            this.resendApiKey = resendKey;
+            this.useResend = true;
+            this.logger.log('Email service initialized with Resend API');
+            return;
+        }
+
+        // Fall back to SMTP
         const host = process.env.SMTP_HOST;
         const port = parseInt(process.env.SMTP_PORT || '587');
         const user = process.env.SMTP_USER;
         const pass = process.env.SMTP_PASS;
 
         if (!host || !user || !pass) {
-            this.logger.warn('SMTP not configured - email sending disabled');
+            this.logger.warn('Email not configured - email sending disabled');
             return;
         }
 
@@ -44,16 +56,75 @@ export class EmailService {
     }
 
     isConfigured(): boolean {
-        return this.transporter !== null;
+        return this.transporter !== null || this.useResend;
+    }
+
+    private async sendWithResend(to: string, subject: string, html: string): Promise<boolean> {
+        if (!this.resendApiKey) return false;
+
+        const fromEmail = process.env.SMTP_FROM || 'onboarding@resend.dev';
+
+        try {
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.resendApiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: fromEmail,
+                    to: [to],
+                    subject: subject,
+                    html: html,
+                }),
+            });
+
+            if (response.ok) {
+                this.logger.log(`Email sent via Resend to ${to}`);
+                return true;
+            } else {
+                const error = await response.json();
+                this.logger.error(`Resend API error: ${JSON.stringify(error)}`);
+                return false;
+            }
+        } catch (error) {
+            this.logger.error(`Resend API request failed: ${error}`);
+            return false;
+        }
+    }
+
+    private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+        // Use Resend if configured
+        if (this.useResend) {
+            return this.sendWithResend(to, subject, html);
+        }
+
+        // Otherwise use SMTP
+        if (!this.transporter) return false;
+
+        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+
+        try {
+            await this.transporter.sendMail({
+                from: fromEmail,
+                to: to,
+                subject: subject,
+                html: html,
+            });
+            this.logger.log(`Email sent via SMTP to ${to}`);
+            return true;
+        } catch (error) {
+            this.logger.error(`SMTP send failed: ${error}`);
+            return false;
+        }
     }
 
     async sendCdKeysEmail(order: OrderDetails): Promise<boolean> {
-        if (!this.transporter) {
+        if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping CD key delivery email');
             return false;
         }
 
-        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
         const storeName = process.env.STORE_NAME || 'DGK Marketplace';
 
         const keysHtml = order.items.map(item => `
@@ -124,15 +195,13 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"${storeName}" <${fromEmail}>`,
-                to: order.customerEmail,
-                subject: `🎮 CD Keys ของคุณพร้อมแล้ว! - Order #${order.orderId.slice(0, 8).toUpperCase()}`,
-                html,
-            });
+            const subject = `🎮 CD Keys ของคุณพร้อมแล้ว! - Order #${order.orderId.slice(0, 8).toUpperCase()}`;
+            const result = await this.sendEmail(order.customerEmail, subject, html);
 
-            this.logger.log(`CD Keys email sent to ${order.customerEmail} for order ${order.orderId}`);
-            return true;
+            if (result) {
+                this.logger.log(`CD Keys email sent to ${order.customerEmail} for order ${order.orderId}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send email to ${order.customerEmail}:`, error);
             return false;
@@ -140,12 +209,11 @@ export class EmailService {
     }
 
     async sendPasswordResetEmail(email: string, resetToken: string, userName: string): Promise<boolean> {
-        if (!this.transporter) {
+        if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping password reset email');
             return false;
         }
 
-        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
         const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
@@ -200,15 +268,12 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"${storeName}" <${fromEmail}>`,
-                to: email,
-                subject: `🔐 รีเซ็ตรหัสผ่าน - ${storeName}`,
-                html,
-            });
-
-            this.logger.log(`Password reset email sent to ${email}`);
-            return true;
+            const subject = `🔐 รีเซ็ตรหัสผ่าน - ${storeName}`;
+            const result = await this.sendEmail(email, subject, html);
+            if (result) {
+                this.logger.log(`Password reset email sent to ${email}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send password reset email to ${email}:`, error);
             return false;
@@ -216,12 +281,11 @@ export class EmailService {
     }
 
     async sendMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean> {
-        if (!this.transporter) {
+        if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping magic link email');
             return false;
         }
 
-        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
         const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const magicLink = `${frontendUrl}/magic-login/${magicToken}`;
@@ -276,15 +340,12 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"${storeName}" <${fromEmail}>`,
-                to: email,
-                subject: `✨ ลิงก์ล็อกอินของคุณ - ${storeName}`,
-                html,
-            });
-
-            this.logger.log(`Magic link email sent to ${email}`);
-            return true;
+            const subject = `✨ ลิงก์ล็อกอินของคุณ - ${storeName}`;
+            const result = await this.sendEmail(email, subject, html);
+            if (result) {
+                this.logger.log(`Magic link email sent to ${email}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send magic link email to ${email}:`, error);
             return false;
@@ -299,7 +360,6 @@ export class EmailService {
         }
 
         const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const verifyLink = `${frontendUrl}/magic-login/${magicToken}`;
 
@@ -353,15 +413,12 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter!.sendMail({
-                from: `"${storeName}" <${fromEmail}>`,
-                to: email,
-                subject: `🎉 ยินดีต้อนรับสู่ ${storeName} - เปิดใช้งานบัญชีของคุณ`,
-                html,
-            });
-
-            this.logger.log(`Registration magic link email sent to ${email}`);
-            return true;
+            const subject = `🎉 ยินดีต้อนรับสู่ ${storeName} - เปิดใช้งานบัญชีของคุณ`;
+            const result = await this.sendEmail(email, subject, html);
+            if (result) {
+                this.logger.log(`Registration magic link email sent to ${email}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send registration magic link email to ${email}:`, error);
             return false;
@@ -369,7 +426,7 @@ export class EmailService {
     }
 
     async sendNewOrderNotification(order: OrderDetails): Promise<boolean> {
-        if (!this.transporter) {
+        if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping order notification');
             return false;
         }
@@ -448,15 +505,13 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"${storeName}" <${storeEmail}>`,
-                to: storeEmail,
-                subject: `🔔 คำสั่งซื้อใหม่! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`,
-                html,
-            });
-
-            this.logger.log(`New order notification sent to store: ${storeEmail}`);
-            return true;
+            const storeEmail = process.env.SMTP_FROM || 'admin@cdkeys.com';
+            const subject = `🔔 คำสั่งซื้อใหม่! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`;
+            const result = await this.sendEmail(storeEmail, subject, html);
+            if (result) {
+                this.logger.log(`New order notification sent to store: ${storeEmail}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send order notification:`, error);
             return false;
@@ -471,7 +526,7 @@ export class EmailService {
         slipUrl: string;
         items: Array<{ gameTitle: string; platform: string }>;
     }): Promise<boolean> {
-        if (!this.transporter) {
+        if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping pending payment notification');
             return false;
         }
@@ -546,15 +601,12 @@ export class EmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"${storeName}" <${storeEmail}>`,
-                to: storeEmail,
-                subject: `⏳ รอตรวจสอบ! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`,
-                html,
-            });
-
-            this.logger.log(`Pending payment notification sent to store: ${storeEmail}`);
-            return true;
+            const subject = `⏳ รอตรวจสอบ! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`;
+            const result = await this.sendEmail(storeEmail, subject, html);
+            if (result) {
+                this.logger.log(`Pending payment notification sent to store: ${storeEmail}`);
+            }
+            return result;
         } catch (error) {
             this.logger.error(`Failed to send pending payment notification:`, error);
             return false;
