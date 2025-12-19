@@ -191,21 +191,7 @@ export default function LoginPage() {
                     </Link>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-gray-700">
-                    <p className="text-center text-gray-500 text-sm mb-4">Demo Accounts:</p>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="glass-card p-3 text-center">
-                            <p className="text-gray-400">Customer</p>
-                            <p className="text-white font-mono text-xs mt-1">demo@email.com</p>
-                            <p className="text-gray-500 font-mono text-xs">demo123</p>
-                        </div>
-                        <div className="glass-card p-3 text-center">
-                            <p className="text-purple-400">Admin</p>
-                            <p className="text-white font-mono text-xs mt-1">admin@cdkeys.com</p>
-                            <p className="text-gray-500 font-mono text-xs">admin123</p>
-                        </div>
-                    </div>
-                </div>
+
             </div>
         </div>
     );

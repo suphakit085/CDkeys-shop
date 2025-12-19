@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { gamesApi, Game, Platform, CreateGameDto } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL } from '@/lib/config';
 
 const platforms: Platform[] = ['STEAM', 'PLAYSTATION', 'XBOX', 'NINTENDO', 'ORIGIN', 'UPLAY', 'EPIC'];
 
@@ -14,6 +15,7 @@ export default function AdminGames() {
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingGame, setEditingGame] = useState<Game | null>(null);
+    const [uploading, setUploading] = useState(false);
     const [formData, setFormData] = useState<CreateGameDto>({
         title: '',
         description: '',
@@ -97,6 +99,35 @@ export default function AdminGames() {
         });
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !token) return;
+
+        setUploading(true);
+        try {
+            const formDataUpload = new FormData();
+            formDataUpload.append('image', file);
+
+            const response = await fetch(`${API_URL}/upload/image?folder=games`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formDataUpload,
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setFormData(prev => ({ ...prev, imageUrl: data.url }));
+            } else {
+                alert('อัพโหลดรูปภาพไม่สำเร็จ');
+            }
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('เกิดข้อผิดพลาดในการอัพโหลด');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     if (authLoading || isLoading) {
         return (
             <div className="max-w-7xl mx-auto px-4 py-8">
@@ -168,13 +199,40 @@ export default function AdminGames() {
                             />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-sm text-gray-300 mb-1">Image URL</label>
-                            <input
-                                type="url"
-                                value={formData.imageUrl}
-                                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                                className="input"
-                            />
+                            <label className="block text-sm text-gray-300 mb-1">รูปภาพเกม</label>
+                            <div className="flex gap-4 items-start">
+                                {/* Preview */}
+                                <div className="w-32 h-32 rounded-lg bg-gray-700/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {formData.imageUrl ? (
+                                        <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-4xl">🎮</span>
+                                    )}
+                                </div>
+                                {/* Upload & URL */}
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="url"
+                                            value={formData.imageUrl}
+                                            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                                            className="input flex-1"
+                                            placeholder="URL รูปภาพ หรือกดอัพโหลด"
+                                        />
+                                        <label className="btn-secondary py-2 px-4 cursor-pointer whitespace-nowrap">
+                                            {uploading ? '⏳...' : '📤 อัพโหลด'}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                                disabled={uploading}
+                                            />
+                                        </label>
+                                    </div>
+                                    <p className="text-xs text-gray-500">รองรับไฟล์ JPG, PNG, GIF, WebP ขนาดไม่เกิน 5MB</p>
+                                </div>
+                            </div>
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm text-gray-300 mb-1">Description</label>
