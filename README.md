@@ -1,23 +1,23 @@
-# 🎮 CD Keys Marketplace
+#  CD Keys Marketplace
 
 A full-stack digital game keys marketplace built with Next.js, NestJS, and PostgreSQL.
 
 ## Features
 
 ### Customer Features
-- 🛒 Browse game catalog with filters (platform, genre, price)
-- 🔍 Search games
-- 🛍️ Add to cart & checkout
-- 💳 Mock payment processing
-- 🔑 View purchased keys with reveal/copy
-- 📦 Order history
+-  Browse game catalog with filters (platform, genre, price)
+-  Search games
+-  Add to cart & checkout
+-  Mock payment processing
+-  View purchased keys with reveal/copy
+-  Order history
 
 ### Admin Features
-- 📊 Dashboard with sales stats
-- 🎮 Game management (CRUD)
-- 🔐 Bulk CD key upload
-- 📈 Key status tracking
-- 👥 Order monitoring
+-  Dashboard with sales stats
+-  Game management (CRUD)
+-  Bulk CD key upload
+-  Key status tracking
+-  Order monitoring
 
 ## Tech Stack
 
@@ -115,5 +115,4 @@ Start Checkout
 - `DELETE /api/keys/:id` - Delete key
 
 ## License
-
 MIT
