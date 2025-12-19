@@ -129,11 +129,11 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                 </Link>
             </nav>
 
-            <div className="grid lg:grid-cols-2 gap-8">
+            <div className="grid lg:grid-cols-[minmax(300px,400px)_1fr] gap-8 lg:gap-12">
                 {/* Left Column - Portrait Image */}
-                <div className="flex flex-col items-center lg:items-start">
-                    {/* Main Image - Portrait Style (smaller) */}
-                    <div className="glass-card overflow-hidden rounded-2xl max-w-xs w-full">
+                <div className="flex flex-col items-center lg:items-center">
+                    {/* Main Image - Portrait Style */}
+                    <div className="glass-card overflow-hidden rounded-2xl w-full max-w-[320px]">
                         <div className="relative aspect-[3/4] w-full">
                             <img
                                 src={allImages[activeImage] || '/placeholder-game.jpg'}
