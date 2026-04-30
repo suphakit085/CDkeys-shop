@@ -44,16 +44,19 @@ exports.SlipOkService = void 0;
 const common_1 = require("@nestjs/common");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const env_1 = require("../common/env");
 let SlipOkService = SlipOkService_1 = class SlipOkService {
     logger = new common_1.Logger(SlipOkService_1.name);
     apiKey = process.env.SLIPOK_API_KEY;
     branchId = process.env.SLIPOK_BRANCH_ID;
     async verifySlip(slipPath) {
         this.logger.log(`SlipOK Config - API Key: ${this.apiKey ? 'SET (length: ' + this.apiKey.length + ')' : 'NOT SET'}, Branch ID: ${this.branchId || 'NOT SET'}`);
-        if (!this.apiKey || !this.branchId) {
+        if (!this.isConfigured()) {
             this.logger.warn('SlipOK API not configured - skipping auto verification');
             return { success: false, message: 'SlipOK API not configured' };
         }
+        const apiKey = this.apiKey;
+        const branchId = this.branchId;
         const fullPath = path.join(process.cwd(), slipPath);
         this.logger.log(`Checking slip file at: ${fullPath}`);
         if (!fs.existsSync(fullPath)) {
@@ -66,11 +69,11 @@ let SlipOkService = SlipOkService_1 = class SlipOkService {
             const ext = path.extname(slipPath).toLowerCase();
             const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
             const dataUrl = `data:${mimeType};base64,${base64Data}`;
-            this.logger.log(`Calling SlipOK API for branch: ${this.branchId}, file size: ${fileBuffer.length} bytes`);
-            const response = await fetch(`https://api.slipok.com/api/line/apikey/${this.branchId}`, {
+            this.logger.log(`Calling SlipOK API for branch: ${branchId}, file size: ${fileBuffer.length} bytes`);
+            const response = await fetch(`https://api.slipok.com/api/line/apikey/${branchId}`, {
                 method: 'POST',
                 headers: {
-                    'x-authorization': this.apiKey,
+                    'x-authorization': apiKey,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -111,7 +114,7 @@ let SlipOkService = SlipOkService_1 = class SlipOkService {
         }
     }
     isConfigured() {
-        return false;
+        return (0, env_1.isConfiguredSet)(this.apiKey, this.branchId);
     }
 };
 exports.SlipOkService = SlipOkService;

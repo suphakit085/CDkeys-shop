@@ -9,6 +9,7 @@ import {
     UseGuards,
     UseInterceptors,
     UploadedFile,
+    BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -102,7 +103,7 @@ export class BannersController {
     )
     async uploadImage(@UploadedFile() file: Express.Multer.File) {
         if (!file) {
-            throw new Error('No file uploaded');
+            throw new BadRequestException('No file uploaded');
         }
         return {
             url: `/uploads/banners/${file.filename}`,

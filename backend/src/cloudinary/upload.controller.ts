@@ -5,6 +5,7 @@ import {
     UseInterceptors,
     UploadedFile,
     Query,
+    BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage, diskStorage } from 'multer';
@@ -36,7 +37,7 @@ export class UploadController {
         @Query('folder') folder: string = 'general',
     ) {
         if (!file) {
-            throw new Error('No file uploaded');
+            throw new BadRequestException('No file uploaded');
         }
 
         // Use Cloudinary if configured

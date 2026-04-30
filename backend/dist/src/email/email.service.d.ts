@@ -12,9 +12,13 @@ interface OrderDetails {
 export declare class EmailService {
     private readonly logger;
     private transporter;
+    private resendApiKey;
+    private useResend;
     constructor();
     private initializeTransporter;
     isConfigured(): boolean;
+    private sendWithResend;
+    private sendEmail;
     sendCdKeysEmail(order: OrderDetails): Promise<boolean>;
     sendPasswordResetEmail(email: string, resetToken: string, userName: string): Promise<boolean>;
     sendMagicLinkEmail(email: string, magicToken: string, userName: string): Promise<boolean>;

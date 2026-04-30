@@ -81,11 +81,19 @@ model Game {
   publisher          String?
   releaseDate        DateTime?
   systemRequirements String?
+  minimumSystemRequirements     String?
+  recommendedSystemRequirements String?
+  features           String[]   @default([])
+  supportedLanguages String[]   @default([])
+  activationRegion   String?
+  ageRating          String?
   screenshots        String[]   @default([])
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   cdKeys             CdKey[]
   orderItems         OrderItem[]
+
+  @@unique([title, platform])
 }
 
 model CdKey {
@@ -102,6 +110,7 @@ model CdKey {
 
   @@index([gameId])
   @@index([status])
+  @@unique([gameId, keyCode])
 }
 
 model Order {

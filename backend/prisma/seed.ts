@@ -120,13 +120,42 @@ async function main() {
 
     // Create games and add sample keys
     for (const gameData of games) {
+        const enrichedGameData = {
+            supportedLanguages: ['English', 'Thai'],
+            activationRegion: 'Global',
+            ageRating: 'Teen',
+            features: [
+                'Instant digital key delivery',
+                'Works with the selected platform launcher',
+                'Order history and key reveal after payment',
+            ],
+            minimumSystemRequirements: [
+                'OS: Windows 10 64-bit',
+                'CPU: Intel Core i5 or AMD Ryzen 5',
+                'RAM: 8 GB',
+                'GPU: NVIDIA GTX 1060 or AMD RX 580',
+                'Storage: 70 GB available space',
+            ].join('\n'),
+            recommendedSystemRequirements: [
+                'OS: Windows 11 64-bit',
+                'CPU: Intel Core i7 or AMD Ryzen 7',
+                'RAM: 16 GB',
+                'GPU: NVIDIA RTX 3060 or AMD RX 6700 XT',
+                'Storage: SSD with 70 GB available space',
+            ].join('\n'),
+            ...gameData,
+        };
+
         const game = await prisma.game.upsert({
             where: {
-                id: gameData.title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                title_platform: {
+                    title: gameData.title,
+                    platform: gameData.platform,
+                },
             },
-            update: gameData,
+            update: enrichedGameData,
             create: {
-                ...gameData,
+                ...enrichedGameData,
             },
         });
 

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { gamesApi, Game, Platform } from '@/lib/api';
+import { Game, gamesApi, Platform } from '@/lib/api';
+import { getUploadUrl } from '@/lib/config';
 import { useCart } from '@/contexts/CartContext';
-import GameCard from '@/components/GameCard';
 
 const platformStyles: Record<Platform, string> = {
     STEAM: 'badge-steam',
@@ -15,6 +15,98 @@ const platformStyles: Record<Platform, string> = {
     UPLAY: 'badge-uplay',
     EPIC: 'badge-epic',
 };
+
+const platformLabels: Record<Platform, string> = {
+    STEAM: 'Steam',
+    PLAYSTATION: 'PlayStation',
+    XBOX: 'Xbox',
+    NINTENDO: 'Nintendo',
+    ORIGIN: 'EA App / Origin',
+    UPLAY: 'Ubisoft Connect',
+    EPIC: 'Epic Games',
+};
+
+function fallbackInitials(title: string) {
+    return title
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+}
+
+function toLines(value?: string) {
+    return (value || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+}
+
+function formatPrice(price: number) {
+    return `$${Number(price).toFixed(2)}`;
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
+    return (
+        <div className="border-b border-slate-100 py-3 last:border-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{value || 'ยังไม่ระบุ'}</p>
+        </div>
+    );
+}
+
+function RequirementList({ lines, fallback }: { lines: string[]; fallback: string }) {
+    if (lines.length === 0) {
+        return <p className="text-sm leading-6 text-slate-500">{fallback}</p>;
+    }
+
+    return (
+        <ul className="space-y-2 text-sm leading-6 text-slate-700">
+            {lines.map((line) => (
+                <li key={line} className="flex gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-teal-500" />
+                    <span>{line}</span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function RelatedGameTile({ game }: { game: Game }) {
+    const imageUrl = game.imageUrl ? getUploadUrl(game.imageUrl) : '';
+    const inStock = game.availableKeys > 0;
+
+    return (
+        <Link href={`/store/${game.id}`} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-[0_16px_38px_rgba(15,23,42,0.1)]">
+            <div className="relative aspect-[16/10] bg-slate-900">
+                {imageUrl ? (
+                    <img src={imageUrl} alt={game.title} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-3xl font-black text-white/30">
+                        {fallbackInitials(game.title)}
+                    </div>
+                )}
+                <div className="absolute left-3 top-3">
+                    <span className={`badge ${platformStyles[game.platform]}`}>{platformLabels[game.platform]}</span>
+                </div>
+            </div>
+            <div className="p-4">
+                <h3 className="line-clamp-2 min-h-11 text-base font-black leading-6 text-slate-950 group-hover:text-teal-700">
+                    {game.title}
+                </h3>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold text-slate-400">{game.genre}</p>
+                        <p className="mt-1 text-xl font-black text-slate-950">{formatPrice(game.price)}</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-black ${inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                        {inStock ? 'พร้อมส่ง' : 'หมด'}
+                    </span>
+                </div>
+            </div>
+        </Link>
+    );
+}
 
 export default function GameDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -28,75 +120,77 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     const cartItem = items.find((item) => item.game.id === id);
     const inCartQty = cartItem?.quantity || 0;
 
-    useEffect(() => {
-        if (id) {
-            loadGame();
-        }
-    }, [id]);
+    const allImages = useMemo(() => {
+        if (!game) return [];
+        return [game.imageUrl, ...(game.screenshots || [])]
+            .filter(Boolean)
+            .map((image) => getUploadUrl(image as string));
+    }, [game]);
 
-    const loadGame = async () => {
+    const loadRelatedGames = useCallback(async (currentGame: Game) => {
         try {
-            const data = await gamesApi.getOne(id);
-            setGame(data);
-            // Load related games
-            loadRelatedGames(data);
-        } catch (error) {
-            console.error('Failed to load game:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const loadRelatedGames = async (currentGame: Game) => {
-        try {
-            // Get games from same platform or genre
             const [samePlatform, sameGenre] = await Promise.all([
                 gamesApi.getAll({ platform: currentGame.platform }),
                 gamesApi.getAll({ genre: currentGame.genre }),
             ]);
-
-            // Combine and deduplicate, exclude current game
-            const combined = [...samePlatform, ...sameGenre];
-            const unique = combined.filter((g, index, self) =>
-                g.id !== currentGame.id &&
-                self.findIndex(t => t.id === g.id) === index
-            ).slice(0, 4); // Show max 4 games
-
+            const unique = [...samePlatform, ...sameGenre]
+                .filter((item, index, list) => item.id !== currentGame.id && list.findIndex((match) => match.id === item.id) === index)
+                .slice(0, 4);
             setRelatedGames(unique);
-        } catch (error) {
-            console.error('Failed to load related games:', error);
+        } catch {
+            setRelatedGames([]);
         }
-    };
+    }, []);
 
-    const handleAddToCart = () => {
+    const loadGame = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await gamesApi.getOne(id);
+            setGame(data);
+            loadRelatedGames(data);
+        } catch {
+            setGame(null);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [id, loadRelatedGames]);
+
+    useEffect(() => {
+        loadGame();
+    }, [loadGame]);
+
+    function addSelectionToCart() {
         if (!game) return;
-        for (let i = 0; i < quantity; i++) {
+        for (let index = 0; index < quantity; index++) {
             addItem(game);
         }
         setQuantity(1);
-    };
+    }
 
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return 'TBA';
-        return new Date(dateString).toLocaleDateString('en-US', {
+    function formatDate(dateString?: string) {
+        if (!dateString) return 'ยังไม่ระบุ';
+        return new Date(dateString).toLocaleDateString('th-TH', {
             day: 'numeric',
             month: 'short',
             year: 'numeric',
         });
-    };
+    }
 
     if (isLoading) {
         return (
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="animate-pulse">
-                    <div className="h-8 bg-gray-700/50 rounded w-1/4 mb-8" />
-                    <div className="grid lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 h-96 bg-gray-700/50 rounded-2xl" />
-                        <div className="space-y-4">
-                            <div className="h-10 bg-gray-700/50 rounded w-3/4" />
-                            <div className="h-6 bg-gray-700/50 rounded w-1/4" />
-                            <div className="h-32 bg-gray-700/50 rounded" />
+            <div className="min-h-screen bg-[#f5f7fb] py-8 text-slate-900">
+                <div className="page-shell animate-pulse">
+                    <div className="mb-6 h-5 w-56 rounded bg-slate-200" />
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                        <div className="grid gap-6 lg:grid-cols-[430px_minmax(0,1fr)]">
+                            <div className="aspect-[16/11] rounded-lg bg-slate-200" />
+                            <div className="space-y-4">
+                                <div className="h-10 w-4/5 rounded bg-slate-200" />
+                                <div className="h-24 rounded bg-slate-200" />
+                                <div className="h-44 rounded bg-slate-200" />
+                            </div>
                         </div>
+                        <div className="h-80 rounded-lg bg-slate-200" />
                     </div>
                 </div>
             </div>
@@ -105,158 +199,154 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
 
     if (!game) {
         return (
-            <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-                <div className="text-6xl mb-6"></div>
-                <h1 className="text-3xl font-bold text-white mb-4">Game not found</h1>
-                <p className="text-gray-400 mb-8">The game you're looking for doesn't exist.</p>
-                <Link href="/store" className="btn-primary py-3 px-8">
-                    Back to Store
-                </Link>
+            <div className="min-h-screen bg-[#f5f7fb] py-20 text-center text-slate-900">
+                <div className="page-shell">
+                    <h1 className="text-3xl font-black">ไม่พบเกมนี้</h1>
+                    <p className="mt-3 text-slate-500">เกมนี้อาจถูกลบหรือไม่มีในร้านแล้ว</p>
+                    <Link href="/store" className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-teal-500 px-6 font-black text-white hover:bg-teal-600">
+                        กลับไปร้านค้า
+                    </Link>
+                </div>
             </div>
         );
     }
 
     const inStock = game.availableKeys > 0;
-    const maxQty = Math.min(game.availableKeys - inCartQty, 10);
-    const allImages = [game.imageUrl, ...(game.screenshots || [])].filter(Boolean) as string[];
+    const maxQty = Math.max(0, Math.min(game.availableKeys - inCartQty, 10));
+    const activeImageSrc = allImages[activeImage];
+    const features = game.features?.length
+        ? game.features
+        : ['ส่งคีย์ดิจิทัลหลังยืนยันการชำระเงิน', `เปิดใช้งานบน ${platformLabels[game.platform]}`, 'ดูคีย์ย้อนหลังได้จากหน้าคำสั่งซื้อ'];
+    const languages = game.supportedLanguages || [];
+    const minimumRequirements = toLines(game.minimumSystemRequirements || game.systemRequirements);
+    const recommendedRequirements = toLines(game.recommendedSystemRequirements);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* Breadcrumb */}
-            <nav className="mb-6">
-                <Link href="/store" className="text-gray-400 hover:text-white transition-colors">
-                    ← Back to Store
-                </Link>
-            </nav>
-
-            <div className="grid lg:grid-cols-[minmax(300px,400px)_1fr] gap-8 lg:gap-12">
-                {/* Left Column - Portrait Image */}
-                <div className="flex flex-col items-center lg:items-center">
-                    {/* Main Image - Portrait Style */}
-                    <div className="glass-card overflow-hidden rounded-2xl w-full max-w-[320px]">
-                        <div className="relative aspect-[3/4] w-full">
-                            <img
-                                src={allImages[activeImage] || '/placeholder-game.jpg'}
-                                alt={game.title}
-                                className="absolute inset-0 w-full h-full object-cover"
-                            />
-                        </div>
+        <div className="min-h-screen bg-[#f5f7fb] pb-14 text-slate-900">
+            <div className="border-b border-slate-200 bg-white">
+                <div className="page-shell py-4">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                        <Link href="/" className="font-semibold hover:text-teal-600">
+                            หน้าแรก
+                        </Link>
+                        <span>/</span>
+                        <Link href="/store" className="font-semibold hover:text-teal-600">
+                            เกมทั้งหมด
+                        </Link>
+                        <span>/</span>
+                        <span className="line-clamp-1 max-w-[52ch] text-slate-900">{game.title}</span>
                     </div>
-
-                    {/* Thumbnails */}
-                    {allImages.length > 1 && (
-                        <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                            {allImages.map((img, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => setActiveImage(index)}
-                                    className={`flex-shrink-0 w-16 h-24 rounded-lg overflow-hidden border-2 transition-all ${activeImage === index
-                                        ? 'border-purple-500 ring-2 ring-purple-500/50'
-                                        : 'border-transparent opacity-60 hover:opacity-100'
-                                        }`}
-                                >
-                                    <img src={img} alt="" className="w-full h-full object-cover" />
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Description */}
-                    {game.description && (
-                        <div className="glass-card p-6 mt-6">
-                            <h3 className="text-xl font-bold text-white mb-4">About this game</h3>
-                            <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-                                {game.description}
-                            </p>
-                        </div>
-                    )}
-
-                    {/* System Requirements */}
-                    {game.systemRequirements && (
-                        <div className="glass-card p-6 mt-6">
-                            <h3 className="text-xl font-bold text-white mb-4">System Requirements</h3>
-                            <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-                                {game.systemRequirements}
-                            </p>
-                        </div>
-                    )}
                 </div>
+            </div>
 
-                {/* Right Column - Info & Buy */}
-                <div className="space-y-6">
-                    {/* Platform Badge */}
-                    <span className={`badge ${platformStyles[game.platform]} text-sm px-4 py-2`}>
-                        {game.platform}
-                    </span>
+            <main className="page-shell py-6">
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <section className="grid gap-6 lg:grid-cols-[430px_minmax(0,1fr)]">
+                        <div className="min-w-0">
+                            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.08)]">
+                                <div className="relative aspect-[16/11] bg-slate-900">
+                                    {activeImageSrc ? (
+                                        <img src={activeImageSrc} alt={game.title} className="absolute inset-0 h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-6xl font-black text-white/30">
+                                            {fallbackInitials(game.title)}
+                                        </div>
+                                    )}
+                                    <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                                        <span className={`badge ${platformStyles[game.platform]}`}>{platformLabels[game.platform]}</span>
+                                        <span className={`badge ${inStock ? 'badge-available' : 'badge-sold'}`}>
+                                            {inStock ? 'พร้อมส่ง' : 'สินค้าหมด'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {/* Title */}
-                    <h1 className="text-3xl font-bold text-white">{game.title}</h1>
+                            {allImages.length > 1 && (
+                                <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                                    {allImages.map((image, index) => (
+                                        <button
+                                            key={image}
+                                            onClick={() => setActiveImage(index)}
+                                            className={`h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg border bg-white transition ${activeImage === index ? 'border-teal-500 ring-2 ring-teal-100' : 'border-slate-200 opacity-70 hover:opacity-100'}`}
+                                            aria-label={`เลือกภาพที่ ${index + 1}`}
+                                        >
+                                            <img src={image} alt="" className="h-full w-full object-cover" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                    {/* Game Info Table */}
-                    <div className="glass-card overflow-hidden">
-                        <table className="w-full text-sm">
-                            <tbody>
-                                {game.developer && (
-                                    <tr className="border-b border-gray-700/50">
-                                        <td className="py-3 px-4 text-gray-400">Developer</td>
-                                        <td className="py-3 px-4 text-white">{game.developer}</td>
-                                    </tr>
-                                )}
-                                {game.publisher && (
-                                    <tr className="border-b border-gray-700/50">
-                                        <td className="py-3 px-4 text-gray-400">Publisher</td>
-                                        <td className="py-3 px-4 text-white">{game.publisher}</td>
-                                    </tr>
-                                )}
-                                <tr className="border-b border-gray-700/50">
-                                    <td className="py-3 px-4 text-gray-400">Platform</td>
-                                    <td className="py-3 px-4 text-white">{game.platform}</td>
-                                </tr>
-                                <tr className="border-b border-gray-700/50">
-                                    <td className="py-3 px-4 text-gray-400">Genre</td>
-                                    <td className="py-3 px-4 text-white">{game.genre}</td>
-                                </tr>
-                                <tr className="border-b border-gray-700/50">
-                                    <td className="py-3 px-4 text-gray-400">Release Date</td>
-                                    <td className="py-3 px-4 text-white">{formatDate(game.releaseDate)}</td>
-                                </tr>
-                                <tr>
-                                    <td className="py-3 px-4 text-gray-400">Stock</td>
-                                    <td className={`py-3 px-4 font-semibold ${inStock ? 'text-green-400' : 'text-red-400'}`}>
-                                        {inStock ? `${game.availableKeys} keys available` : 'Out of Stock'}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)]">
+                            <div className="flex flex-wrap gap-2">
+                                <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black uppercase text-teal-700">
+                                    Digital key
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase text-slate-600">
+                                    {game.genre}
+                                </span>
+                            </div>
 
-                    {/* Price & Buy Box */}
-                    <div className="glass-card p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-400">Price</span>
-                            <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                                ${Number(game.price).toFixed(2)}
+                            <h1 className="mt-4 text-3xl font-black leading-tight text-slate-950 lg:text-4xl">{game.title}</h1>
+                            {game.description && (
+                                <p className="mt-4 text-sm leading-7 text-slate-600">{game.description}</p>
+                            )}
+
+                            <div className="mt-5 grid grid-cols-2 gap-x-5 border-t border-slate-100 pt-2 sm:grid-cols-3">
+                                <InfoRow label="แพลตฟอร์ม" value={platformLabels[game.platform]} />
+                                <InfoRow label="แนวเกม" value={game.genre} />
+                                <InfoRow label="โซน" value={game.activationRegion || 'Global'} />
+                                <InfoRow label="วันวางจำหน่าย" value={formatDate(game.releaseDate)} />
+                                <InfoRow label="ผู้พัฒนา" value={game.developer} />
+                                <InfoRow label="เรตติ้ง" value={game.ageRating} />
+                            </div>
+                        </div>
+                    </section>
+
+                    <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5 shadow-[0_16px_44px_rgba(15,23,42,0.1)] xl:sticky xl:top-24">
+                        <p className="text-sm font-bold text-slate-500">ราคาสินค้า</p>
+                        <div className="mt-1 flex items-end justify-between gap-4">
+                            <p className="text-4xl font-black text-slate-950">{formatPrice(game.price)}</p>
+                            <span className={`rounded-full px-3 py-1 text-xs font-black ${inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                {inStock ? `${game.availableKeys} คีย์` : 'หมด'}
                             </span>
                         </div>
 
+                        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div className="grid gap-3 text-sm">
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-500">รูปแบบสินค้า</span>
+                                    <span className="font-black text-slate-900">CD Key</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-500">การจัดส่ง</span>
+                                    <span className="font-black text-slate-900">หลังยืนยันชำระเงิน</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="text-slate-500">ชำระเงิน</span>
+                                    <span className="font-black text-slate-900">PromptPay</span>
+                                </div>
+                            </div>
+                        </div>
+
                         {inStock && (
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-gray-400">Quantity</span>
-                                <div className="flex items-center gap-1">
+                            <div className="mt-5 flex items-center justify-between gap-4">
+                                <span className="text-sm font-black text-slate-700">จำนวน</span>
+                                <div className="grid grid-cols-[42px_56px_42px] overflow-hidden rounded-lg border border-slate-200 bg-white">
                                     <button
                                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                                         disabled={quantity <= 1}
-                                        className="w-10 h-10 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 text-white font-bold text-xl flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                        className="h-11 text-lg font-black text-slate-900 hover:bg-slate-50 disabled:opacity-30"
                                     >
-                                        −
+                                        -
                                     </button>
-                                    <span className="w-14 h-10 flex items-center justify-center text-white font-bold text-lg bg-gray-800/50 rounded-lg">
+                                    <span className="flex h-11 items-center justify-center border-x border-slate-200 bg-slate-50 font-black text-slate-900">
                                         {quantity}
                                     </span>
                                     <button
                                         onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
                                         disabled={quantity >= maxQty || maxQty <= 0}
-                                        className="w-10 h-10 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 text-white font-bold text-xl flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                        className="h-11 text-lg font-black text-slate-900 hover:bg-slate-50 disabled:opacity-30"
                                     >
                                         +
                                     </button>
@@ -265,50 +355,137 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         )}
 
                         {inCartQty > 0 && (
-                            <p className="text-purple-400 text-sm mb-4 text-center">
-                                ✓ {inCartQty} already in cart
+                            <p className="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-center text-sm font-bold text-teal-700">
+                                มีในตะกร้าแล้ว {inCartQty} ชิ้น
                             </p>
                         )}
 
                         <button
-                            onClick={handleAddToCart}
+                            onClick={addSelectionToCart}
                             disabled={!inStock || maxQty <= 0}
-                            className={`btn-primary w-full py-4 text-lg ${!inStock || maxQty <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
+                            className="mt-5 h-12 w-full rounded-lg bg-teal-500 px-5 text-base font-black text-white transition hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
-                            {!inStock ? ' Out of Stock' : maxQty <= 0 ? '✓ Max in Cart' : ' Add to Cart'}
+                            {!inStock ? 'สินค้าหมด' : maxQty <= 0 ? 'ถึงจำนวนสูงสุดแล้ว' : 'เพิ่มลงตะกร้า'}
                         </button>
-                    </div>
 
-                    {/* Features */}
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3 text-gray-300">
-
-                            <span>Instant digital delivery</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-300">
-
-                            <span>Verified authentic key</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-300">
-
-                            <span>Activate on {game.platform}</span>
-                        </div>
-                    </div>
+                        <Link href="/cart" className="mt-3 flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-slate-900 hover:bg-slate-50">
+                            ไปหน้าตะกร้า
+                        </Link>
+                    </aside>
                 </div>
-            </div>
 
-            {/* Related Games */}
-            {relatedGames.length > 0 && (
-                <div className="mt-12">
-                    <h2 className="text-2xl font-bold text-white mb-6"> เกมที่คุณอาจชอบ</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {relatedGames.map((relatedGame) => (
-                            <GameCard key={relatedGame.id} game={relatedGame} />
+                <div className="mt-6 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3">
+                    {[
+                        ['#details', 'รายละเอียด'],
+                        ['#features', 'ข้อมูลสินค้า'],
+                        ['#requirements', 'ระบบที่ต้องการ'],
+                        ['#activation', 'วิธีเปิดใช้งาน'],
+                    ].map(([href, label]) => (
+                        <a key={href} href={href} className="flex h-10 flex-shrink-0 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:border-teal-300 hover:text-teal-700">
+                            {label}
+                        </a>
+                    ))}
+                </div>
+
+                <section id="details" className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                        <p className="text-sm font-black text-teal-700">รายละเอียดเกม</p>
+                        <h2 className="mt-1 text-2xl font-black text-slate-950">เกี่ยวกับเกมนี้</h2>
+                        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">
+                            {game.description || 'ยังไม่มีรายละเอียดเกมเพิ่มเติม'}
+                        </p>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                        <p className="text-sm font-black text-teal-700">ภาษา</p>
+                        <h2 className="mt-1 text-2xl font-black text-slate-950">รองรับภาษา</h2>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {(languages.length ? languages : ['ยังไม่ระบุ']).map((language) => (
+                                <span key={language} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
+                                    {language}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section id="features" className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                    <p className="text-sm font-black text-teal-700">ข้อมูลสินค้า</p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-950">สิ่งที่จะได้รับ</h2>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {features.map((feature) => (
+                            <div key={feature} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">
+                                {feature}
+                            </div>
                         ))}
                     </div>
-                </div>
-            )}
+                </section>
+
+                <section id="requirements" className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                    <p className="text-sm font-black text-teal-700">System requirements</p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-950">ความต้องการระบบ</h2>
+                    <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                            <h3 className="text-lg font-black text-slate-950">ขั้นต่ำ</h3>
+                            <div className="mt-4">
+                                <RequirementList lines={minimumRequirements} fallback="ยังไม่มีข้อมูลความต้องการขั้นต่ำ" />
+                            </div>
+                        </div>
+                        <div className="rounded-lg border border-teal-200 bg-teal-50 p-5">
+                            <h3 className="text-lg font-black text-slate-950">แนะนำ</h3>
+                            <div className="mt-4">
+                                <RequirementList lines={recommendedRequirements} fallback="ยังไม่มีข้อมูลสเปกแนะนำ" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="activation" className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                    <p className="text-sm font-black text-teal-700">วิธีใช้งาน</p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-950">เปิดใช้งานคีย์อย่างไร</h2>
+                    <div className="mt-5 grid gap-4 md:grid-cols-3">
+                        {[
+                            ['1', 'สั่งซื้อและชำระเงิน', 'เพิ่มเกมลงตะกร้า แล้วอัปโหลดสลิป PromptPay ในหน้าชำระเงิน'],
+                            ['2', 'รอยืนยันคำสั่งซื้อ', 'เมื่อร้านตรวจสอบสำเร็จ สถานะคำสั่งซื้อจะเปลี่ยนเป็นสำเร็จ'],
+                            ['3', `Redeem บน ${platformLabels[game.platform]}`, 'คัดลอกคีย์จากหน้าคำสั่งซื้อ แล้วนำไปเปิดใช้งานบนแพลตฟอร์มที่กำหนด'],
+                        ].map(([step, title, text]) => (
+                            <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500 text-sm font-black text-white">{step}</div>
+                                <h3 className="mt-4 text-base font-black text-slate-950">{title}</h3>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {allImages.length > 1 && (
+                    <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+                        <p className="text-sm font-black text-teal-700">Media</p>
+                        <h2 className="mt-1 text-2xl font-black text-slate-950">ภาพเพิ่มเติม</h2>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {allImages.slice(1).map((image) => (
+                                <img key={image} src={image} alt={`${game.title} screenshot`} className="aspect-video w-full rounded-lg object-cover" />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {relatedGames.length > 0 && (
+                    <section className="mt-10">
+                        <div className="mb-5 flex items-end justify-between">
+                            <div>
+                                <p className="text-sm font-black text-teal-700">เกมอื่นที่น่าสนใจ</p>
+                                <h2 className="mt-1 text-2xl font-black text-slate-950">สินค้าใกล้เคียง</h2>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                            {relatedGames.map((relatedGame) => (
+                                <RelatedGameTile key={relatedGame.id} game={relatedGame} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </main>
         </div>
     );
 }

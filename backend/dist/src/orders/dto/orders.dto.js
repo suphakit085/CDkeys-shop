@@ -22,8 +22,9 @@ __decorate([
     __metadata("design:type", String)
 ], CartItemDto.prototype, "gameId", void 0);
 __decorate([
-    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(20),
     __metadata("design:type", Number)
 ], CartItemDto.prototype, "quantity", void 0);
 class CreateOrderDto {
@@ -32,6 +33,7 @@ class CreateOrderDto {
 exports.CreateOrderDto = CreateOrderDto;
 __decorate([
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayNotEmpty)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => CartItemDto),
     __metadata("design:type", Array)

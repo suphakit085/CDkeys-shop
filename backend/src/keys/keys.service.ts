@@ -24,6 +24,11 @@ export class KeysService {
 
     // Bulk add keys
     async addKeys(gameId: string, keys: string[]) {
+        const normalizedKeys = [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
+        if (normalizedKeys.length === 0) {
+            throw new BadRequestException('At least one valid key is required');
+        }
+
         // Check if game exists
         const game = await this.prisma.game.findUnique({ where: { id: gameId } });
         if (!game) {
@@ -34,64 +39,79 @@ export class KeysService {
         const existingKeys = await this.prisma.cdKey.findMany({
             where: {
                 gameId,
-                keyCode: { in: keys },
+                keyCode: { in: normalizedKeys },
             },
             select: { keyCode: true },
         });
 
         const existingKeySet = new Set(existingKeys.map((k) => k.keyCode));
-        const newKeys = keys.filter((k) => !existingKeySet.has(k));
+        const newKeys = normalizedKeys.filter((key) => !existingKeySet.has(key));
 
         if (newKeys.length === 0) {
             throw new BadRequestException('All keys already exist');
         }
 
         // Create keys
-        await this.prisma.cdKey.createMany({
+        const result = await this.prisma.cdKey.createMany({
             data: newKeys.map((keyCode) => ({
                 gameId,
                 keyCode,
                 status: KeyStatus.AVAILABLE,
             })),
+            skipDuplicates: true,
         });
 
         return {
-            added: newKeys.length,
-            duplicates: keys.length - newKeys.length,
+            added: result.count,
+            duplicates: keys.length - result.count,
         };
     }
 
     // Reserve a key for checkout
     async reserveKey(gameId: string): Promise<string | null> {
-        const key = await this.prisma.cdKey.findFirst({
-            where: {
-                gameId,
-                status: KeyStatus.AVAILABLE,
-            },
-        });
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const key = await this.prisma.cdKey.findFirst({
+                where: {
+                    gameId,
+                    status: KeyStatus.AVAILABLE,
+                },
+                orderBy: { createdAt: 'asc' },
+            });
 
-        if (!key) {
-            return null;
+            if (!key) {
+                return null;
+            }
+
+            const result = await this.prisma.cdKey.updateMany({
+                where: {
+                    id: key.id,
+                    status: KeyStatus.AVAILABLE,
+                },
+                data: {
+                    status: KeyStatus.RESERVED,
+                    reservedAt: new Date(),
+                },
+            });
+
+            if (result.count === 1) {
+                return key.id;
+            }
         }
 
-        await this.prisma.cdKey.update({
-            where: { id: key.id },
-            data: {
-                status: KeyStatus.RESERVED,
-                reservedAt: new Date(),
-            },
-        });
-
-        return key.id;
+        return null;
     }
 
     // Release reserved key (on payment failure or cart abandonment)
     async releaseKey(keyId: string) {
-        await this.prisma.cdKey.update({
-            where: { id: keyId },
+        await this.prisma.cdKey.updateMany({
+            where: {
+                id: keyId,
+                status: KeyStatus.RESERVED,
+            },
             data: {
                 status: KeyStatus.AVAILABLE,
                 reservedAt: null,
+                orderItemId: null,
             },
         });
     }

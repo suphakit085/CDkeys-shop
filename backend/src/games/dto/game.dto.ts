@@ -41,6 +41,32 @@ export class CreateGameDto {
     @IsOptional()
     systemRequirements?: string;
 
+    @IsString()
+    @IsOptional()
+    minimumSystemRequirements?: string;
+
+    @IsString()
+    @IsOptional()
+    recommendedSystemRequirements?: string;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    features?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    supportedLanguages?: string[];
+
+    @IsString()
+    @IsOptional()
+    activationRegion?: string;
+
+    @IsString()
+    @IsOptional()
+    ageRating?: string;
+
     @IsArray()
     @IsOptional()
     screenshots?: string[];
@@ -87,6 +113,32 @@ export class UpdateGameDto {
     @IsString()
     @IsOptional()
     systemRequirements?: string;
+
+    @IsString()
+    @IsOptional()
+    minimumSystemRequirements?: string;
+
+    @IsString()
+    @IsOptional()
+    recommendedSystemRequirements?: string;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    features?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    supportedLanguages?: string[];
+
+    @IsString()
+    @IsOptional()
+    activationRegion?: string;
+
+    @IsString()
+    @IsOptional()
+    ageRating?: string;
 
     @IsArray()
     @IsOptional()

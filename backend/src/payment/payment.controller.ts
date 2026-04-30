@@ -53,14 +53,22 @@ export class PaymentController {
     async uploadSlip(
         @Param('orderId') orderId: string,
         @UploadedFile() file: Express.Multer.File,
-        @Request() req,
+        @Request() req: { user: { id: string } },
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
 
         const slipUrl = `/uploads/slips/${file.filename}`;
-        const result = await this.paymentService.uploadPaymentSlip(orderId, slipUrl);
+        let result;
+        try {
+            result = await this.paymentService.uploadPaymentSlip(orderId, req.user.id, slipUrl);
+        } catch (error) {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            await fs.unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename)).catch(() => undefined);
+            throw error;
+        }
 
         return {
             message: result.message,
@@ -73,8 +81,8 @@ export class PaymentController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @Post('verify/:orderId')
-    async verifyPayment(@Param('orderId') orderId: string, @Request() req) {
-        await this.paymentService.verifyPayment(orderId, req.user.userId);
+    async verifyPayment(@Param('orderId') orderId: string, @Request() req: { user: { id: string } }) {
+        await this.paymentService.verifyPayment(orderId, req.user.id);
         return { message: 'Payment verified successfully' };
     }
 
@@ -84,9 +92,9 @@ export class PaymentController {
     async rejectPayment(
         @Param('orderId') orderId: string,
         @Body('reason') reason: string,
-        @Request() req,
+        @Request() req: { user: { id: string } },
     ) {
-        await this.paymentService.rejectPayment(orderId, req.user.userId, reason);
+        await this.paymentService.rejectPayment(orderId, req.user.id, reason);
         return { message: 'Payment rejected' };
     }
 

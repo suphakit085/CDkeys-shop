@@ -2,10 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const uploadRoot = join(process.cwd(), 'uploads');
+  for (const folder of ['slips', 'banners', 'settings']) {
+    mkdirSync(join(uploadRoot, folder), { recursive: true });
+  }
 
   // Enable CORS for frontend
   const allowedOrigins = [
@@ -22,7 +27,7 @@ async function bootstrap() {
   });
 
   // Serve static uploaded files
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+  app.useStaticAssets(uploadRoot, {
     prefix: '/uploads/',
   });
 

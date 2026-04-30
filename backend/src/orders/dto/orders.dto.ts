@@ -1,17 +1,19 @@
-import { IsArray, IsUUID, ValidateNested, IsNumber, Min, IsOptional, IsBoolean } from 'class-validator';
+import { IsArray, IsUUID, ValidateNested, IsInt, Min, Max, IsOptional, IsBoolean, ArrayNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CartItemDto {
     @IsUUID()
     gameId: string;
 
-    @IsNumber()
+    @IsInt()
     @Min(1)
+    @Max(20)
     quantity: number;
 }
 
 export class CreateOrderDto {
     @IsArray()
+    @ArrayNotEmpty()
     @ValidateNested({ each: true })
     @Type(() => CartItemDto)
     items: CartItemDto[];

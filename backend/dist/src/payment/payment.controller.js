@@ -55,7 +55,16 @@ let PaymentController = class PaymentController {
             throw new common_1.BadRequestException('No file uploaded');
         }
         const slipUrl = `/uploads/slips/${file.filename}`;
-        const result = await this.paymentService.uploadPaymentSlip(orderId, slipUrl);
+        let result;
+        try {
+            result = await this.paymentService.uploadPaymentSlip(orderId, req.user.id, slipUrl);
+        }
+        catch (error) {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            await fs.unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename)).catch(() => undefined);
+            throw error;
+        }
         return {
             message: result.message,
             slipUrl,
@@ -64,11 +73,11 @@ let PaymentController = class PaymentController {
         };
     }
     async verifyPayment(orderId, req) {
-        await this.paymentService.verifyPayment(orderId, req.user.userId);
+        await this.paymentService.verifyPayment(orderId, req.user.id);
         return { message: 'Payment verified successfully' };
     }
     async rejectPayment(orderId, reason, req) {
-        await this.paymentService.rejectPayment(orderId, req.user.userId, reason);
+        await this.paymentService.rejectPayment(orderId, req.user.id, reason);
         return { message: 'Payment rejected' };
     }
     async getPendingPayments() {

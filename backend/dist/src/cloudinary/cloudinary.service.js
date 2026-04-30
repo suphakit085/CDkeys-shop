@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const cloudinary_1 = require("cloudinary");
 const streamifier = __importStar(require("streamifier"));
+const env_1 = require("../common/env");
 let CloudinaryService = class CloudinaryService {
     configService;
     isConfigured = false;
@@ -55,17 +56,17 @@ let CloudinaryService = class CloudinaryService {
         const cloudName = this.configService.get('CLOUDINARY_CLOUD_NAME');
         const apiKey = this.configService.get('CLOUDINARY_API_KEY');
         const apiSecret = this.configService.get('CLOUDINARY_API_SECRET');
-        if (cloudName && apiKey && apiSecret) {
+        if ((0, env_1.isConfiguredSet)(cloudName, apiKey, apiSecret)) {
             cloudinary_1.v2.config({
                 cloud_name: cloudName,
                 api_key: apiKey,
                 api_secret: apiSecret,
             });
             this.isConfigured = true;
-            console.log('✅ Cloudinary configured successfully');
+            console.log('Cloudinary configured successfully');
         }
         else {
-            console.log('⚠️ Cloudinary not configured - using local storage fallback');
+            console.log('Cloudinary not configured - using local storage fallback');
         }
     }
     isEnabled() {

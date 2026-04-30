@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { gamesApi, Game, Platform, CreateGameDto } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_URL } from '@/lib/config';
+import { API_URL, getUploadUrl } from '@/lib/config';
 
 const platforms: Platform[] = ['STEAM', 'PLAYSTATION', 'XBOX', 'NINTENDO', 'ORIGIN', 'UPLAY', 'EPIC'];
+const textToList = (value: string) => value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+const listToText = (value?: string[]) => (value || []).join('\n');
 
 export default function AdminGames() {
     const { user, token, isAdmin, isLoading: authLoading } = useAuth();
@@ -23,6 +25,17 @@ export default function AdminGames() {
         genre: '',
         price: 0,
         imageUrl: '',
+        developer: '',
+        publisher: '',
+        releaseDate: '',
+        systemRequirements: '',
+        minimumSystemRequirements: '',
+        recommendedSystemRequirements: '',
+        features: [],
+        supportedLanguages: [],
+        activationRegion: '',
+        ageRating: '',
+        screenshots: [],
     });
 
     useEffect(() => {
@@ -49,12 +62,16 @@ export default function AdminGames() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
+        const payload: CreateGameDto = {
+            ...formData,
+            releaseDate: formData.releaseDate || undefined,
+        };
 
         try {
             if (editingGame) {
-                await gamesApi.update(editingGame.id, formData, token);
+                await gamesApi.update(editingGame.id, payload, token);
             } else {
-                await gamesApi.create(formData, token);
+                await gamesApi.create(payload, token);
             }
             await loadGames();
             resetForm();
@@ -82,6 +99,17 @@ export default function AdminGames() {
             genre: game.genre,
             price: game.price,
             imageUrl: game.imageUrl || '',
+            developer: game.developer || '',
+            publisher: game.publisher || '',
+            releaseDate: game.releaseDate ? game.releaseDate.slice(0, 10) : '',
+            systemRequirements: game.systemRequirements || '',
+            minimumSystemRequirements: game.minimumSystemRequirements || '',
+            recommendedSystemRequirements: game.recommendedSystemRequirements || '',
+            features: game.features || [],
+            supportedLanguages: game.supportedLanguages || [],
+            activationRegion: game.activationRegion || '',
+            ageRating: game.ageRating || '',
+            screenshots: game.screenshots || [],
         });
         setShowForm(true);
     };
@@ -96,6 +124,17 @@ export default function AdminGames() {
             genre: '',
             price: 0,
             imageUrl: '',
+            developer: '',
+            publisher: '',
+            releaseDate: '',
+            systemRequirements: '',
+            minimumSystemRequirements: '',
+            recommendedSystemRequirements: '',
+            features: [],
+            supportedLanguages: [],
+            activationRegion: '',
+            ageRating: '',
+            screenshots: [],
         });
     };
 
@@ -204,7 +243,7 @@ export default function AdminGames() {
                                 {/* Preview */}
                                 <div className="w-32 h-32 rounded-lg bg-gray-700/50 flex items-center justify-center overflow-hidden flex-shrink-0">
                                     {formData.imageUrl ? (
-                                        <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        <img src={getUploadUrl(formData.imageUrl)} alt="Preview" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-4xl">🎮</span>
                                     )}
@@ -240,6 +279,98 @@ export default function AdminGames() {
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 className="input min-h-[100px]"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Developer</label>
+                            <input
+                                type="text"
+                                value={formData.developer || ''}
+                                onChange={(e) => setFormData({ ...formData, developer: e.target.value })}
+                                className="input"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Publisher</label>
+                            <input
+                                type="text"
+                                value={formData.publisher || ''}
+                                onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
+                                className="input"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Release Date</label>
+                            <input
+                                type="date"
+                                value={formData.releaseDate || ''}
+                                onChange={(e) => setFormData({ ...formData, releaseDate: e.target.value })}
+                                className="input"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Region</label>
+                            <input
+                                type="text"
+                                value={formData.activationRegion || ''}
+                                onChange={(e) => setFormData({ ...formData, activationRegion: e.target.value })}
+                                className="input"
+                                placeholder="Global, Thailand, EU, US"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Age Rating</label>
+                            <input
+                                type="text"
+                                value={formData.ageRating || ''}
+                                onChange={(e) => setFormData({ ...formData, ageRating: e.target.value })}
+                                className="input"
+                                placeholder="Everyone, Teen, Mature"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Languages</label>
+                            <textarea
+                                value={listToText(formData.supportedLanguages)}
+                                onChange={(e) => setFormData({ ...formData, supportedLanguages: textToList(e.target.value) })}
+                                className="input min-h-[92px]"
+                                placeholder="English&#10;Thai&#10;Japanese"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm text-gray-300 mb-1">Key Features</label>
+                            <textarea
+                                value={listToText(formData.features)}
+                                onChange={(e) => setFormData({ ...formData, features: textToList(e.target.value) })}
+                                className="input min-h-[110px]"
+                                placeholder="One feature per line"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Minimum Requirements</label>
+                            <textarea
+                                value={formData.minimumSystemRequirements || ''}
+                                onChange={(e) => setFormData({ ...formData, minimumSystemRequirements: e.target.value })}
+                                className="input min-h-[150px]"
+                                placeholder="OS: Windows 10&#10;CPU: Intel Core i5&#10;RAM: 8 GB"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-300 mb-1">Recommended Requirements</label>
+                            <textarea
+                                value={formData.recommendedSystemRequirements || ''}
+                                onChange={(e) => setFormData({ ...formData, recommendedSystemRequirements: e.target.value })}
+                                className="input min-h-[150px]"
+                                placeholder="OS: Windows 11&#10;CPU: Intel Core i7&#10;RAM: 16 GB"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm text-gray-300 mb-1">Legacy / Extra Requirements</label>
+                            <textarea
+                                value={formData.systemRequirements || ''}
+                                onChange={(e) => setFormData({ ...formData, systemRequirements: e.target.value })}
+                                className="input min-h-[100px]"
+                                placeholder="Optional extra notes shown below the requirement cards"
                             />
                         </div>
                     </div>

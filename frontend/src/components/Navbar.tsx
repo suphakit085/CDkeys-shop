@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { API_URL, getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { useState, useEffect } from 'react';
-import { API_URL } from '@/lib/config';
 
 interface SiteSettings {
     storeName: string;
@@ -21,149 +21,128 @@ export default function Navbar() {
 
     useEffect(() => {
         fetch(`${API_URL}/settings`)
-            .then(res => res.json())
-            .then(data => setSettings(data))
-            .catch(() => { });
+            .then((res) => res.json())
+            .then((data) => setSettings(data))
+            .catch(() => undefined);
     }, []);
 
     const storeName = settings?.storeName || 'CDKeys';
+    const navLinks = [
+        { href: '/store', label: 'Store' },
+        ...(user ? [{ href: '/orders', label: 'Orders' }] : []),
+        ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
+    ];
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 glass-card rounded-none border-t-0 border-x-0">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 group">
+        <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#0b0f14]/95 backdrop-blur-xl">
+            <div className="page-shell">
+                <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-8">
+                    <Link href="/" className="flex min-w-0 items-center gap-3" onClick={() => setIsMenuOpen(false)}>
                         {settings?.logoUrl ? (
                             <img
-                                src={settings.logoUrl}
+                                src={getUploadUrl(settings.logoUrl)}
                                 alt={storeName}
-                                className="w-10 h-10 rounded-xl object-contain"
+                                className="h-9 w-9 rounded-lg border border-white/10 object-contain"
                             />
                         ) : (
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center">
-                                <span className="text-white font-bold text-xl">🎮</span>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-teal-300/[0.25] bg-teal-300/[0.12] text-xs font-black text-teal-200">
+                                CK
                             </div>
                         )}
-                        <span
-                            className="text-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent"
-                            style={settings?.primaryColor ? { color: settings.primaryColor, backgroundImage: 'none' } : {}}
-                        >
-                            {storeName}
-                        </span>
+                        <div className="min-w-0">
+                            <p className="truncate text-base font-black tracking-tight text-white">{storeName}</p>
+                        </div>
                     </Link>
 
-                    {/* Desktop Navigation */}
-                    <div className="hidden md:flex items-center gap-6">
-                        <Link
-                            href="/store"
-                            className="text-gray-300 hover:text-white transition-colors font-medium"
-                        >
-                            Store
+                    <div className="hidden items-center gap-1 lg:flex">
+                        {navLinks.map((link) => (
+                            <Link key={link.href} href={link.href} className="btn-ghost h-9 px-3 text-sm">
+                                {link.label}
+                            </Link>
+                        ))}
+                    </div>
+
+                    <div className="hidden items-center gap-2 lg:flex">
+                        <Link href="/cart" className="btn-secondary relative h-9 w-10 px-0" aria-label="Cart">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.5 3m0 0L7 15h10l2-9H5.5Zm3.5 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm8 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                            </svg>
+                            {itemCount > 0 && (
+                                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-black text-black">
+                                    {itemCount}
+                                </span>
+                            )}
                         </Link>
 
                         {user ? (
                             <>
-                                <Link
-                                    href="/orders"
-                                    className="text-gray-300 hover:text-white transition-colors font-medium"
-                                >
-                                    My Orders
-                                </Link>
-
-                                {isAdmin && (
-                                    <Link
-                                        href="/admin"
-                                        className="text-purple-400 hover:text-purple-300 transition-colors font-medium"
-                                    >
-                                        Admin Panel
-                                    </Link>
-                                )}
-
-                                <Link
-                                    href="/cart"
-                                    className="relative text-gray-300 hover:text-white transition-colors"
-                                >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    {itemCount > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                                            {itemCount}
-                                        </span>
-                                    )}
-                                </Link>
-
-                                <div className="flex items-center gap-3">
-                                    <span className="text-gray-400 text-sm">{user.name}</span>
-                                    <button
-                                        onClick={logout}
-                                        className="btn-secondary text-sm py-2 px-4"
-                                    >
-                                        Logout
-                                    </button>
+                                <div className="max-w-40 truncate rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-gray-300">
+                                    {user.name}
                                 </div>
+                                <button onClick={logout} className="btn-secondary h-9 px-4 text-sm">
+                                    Logout
+                                </button>
                             </>
                         ) : (
-                            <div className="flex items-center gap-3">
-                                <Link href="/login" className="btn-secondary py-2 px-4">
+                            <>
+                                <Link href="/login" className="btn-secondary h-9 px-4 text-sm">
                                     Login
                                 </Link>
-                                <Link href="/register" className="btn-primary py-2 px-4">
+                                <Link href="/register" className="btn-primary h-9 px-4 text-sm">
                                     Sign Up
                                 </Link>
-                            </div>
+                            </>
                         )}
                     </div>
 
-                    {/* Mobile menu button */}
                     <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="md:hidden p-2 text-gray-300 hover:text-white"
+                        onClick={() => setIsMenuOpen((value) => !value)}
+                        className="btn-secondary h-10 w-10 px-0 lg:hidden"
+                        aria-label="Toggle navigation"
                     >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             {isMenuOpen ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6 6 18" />
                             ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
                             )}
                         </svg>
                     </button>
                 </div>
 
-                {/* Mobile menu */}
                 {isMenuOpen && (
-                    <div className="md:hidden py-4 border-t border-gray-700">
-                        <div className="flex flex-col gap-3">
-                            <Link href="/store" className="text-gray-300 hover:text-white py-2">
-                                Store
+                    <div className="border-t border-white/10 py-3 lg:hidden">
+                        <div className="grid gap-1">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className="rounded-lg px-3 py-3 text-gray-200 hover:bg-white/[0.06]"
+                                >
+                                    {link.label}
+                                </Link>
+                            ))}
+                            <Link
+                                href="/cart"
+                                onClick={() => setIsMenuOpen(false)}
+                                className="rounded-lg px-3 py-3 text-gray-200 hover:bg-white/[0.06]"
+                            >
+                                Cart ({itemCount})
                             </Link>
                             {user ? (
-                                <>
-                                    <Link href="/orders" className="text-gray-300 hover:text-white py-2">
-                                        My Orders
-                                    </Link>
-                                    <Link href="/cart" className="text-gray-300 hover:text-white py-2">
-                                        Cart ({itemCount})
-                                    </Link>
-                                    {isAdmin && (
-                                        <Link href="/admin" className="text-purple-400 hover:text-purple-300 py-2">
-                                            Admin Panel
-                                        </Link>
-                                    )}
-                                    <button onClick={logout} className="text-left text-gray-300 hover:text-white py-2">
-                                        Logout ({user.name})
-                                    </button>
-                                </>
+                                <button onClick={logout} className="rounded-lg px-3 py-3 text-left text-gray-200 hover:bg-white/[0.06]">
+                                    Logout ({user.name})
+                                </button>
                             ) : (
-                                <>
-                                    <Link href="/login" className="text-gray-300 hover:text-white py-2">
+                                <div className="grid grid-cols-2 gap-2 pt-2">
+                                    <Link href="/login" onClick={() => setIsMenuOpen(false)} className="btn-secondary h-11 px-4">
                                         Login
                                     </Link>
-                                    <Link href="/register" className="text-gray-300 hover:text-white py-2">
+                                    <Link href="/register" onClick={() => setIsMenuOpen(false)} className="btn-primary h-11 px-4">
                                         Sign Up
                                     </Link>
-                                </>
+                                </div>
                             )}
                         </div>
                     </div>

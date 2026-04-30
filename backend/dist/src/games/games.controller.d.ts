@@ -20,6 +20,12 @@ export declare class GamesController {
         publisher: string | null;
         releaseDate: Date | null;
         systemRequirements: string | null;
+        minimumSystemRequirements: string | null;
+        recommendedSystemRequirements: string | null;
+        features: string[];
+        supportedLanguages: string[];
+        activationRegion: string | null;
+        ageRating: string | null;
         screenshots: string[];
     }[]>;
     getGenres(): Promise<string[]>;
@@ -39,6 +45,12 @@ export declare class GamesController {
         publisher: string | null;
         releaseDate: Date | null;
         systemRequirements: string | null;
+        minimumSystemRequirements: string | null;
+        recommendedSystemRequirements: string | null;
+        features: string[];
+        supportedLanguages: string[];
+        activationRegion: string | null;
+        ageRating: string | null;
         screenshots: string[];
     }>;
     create(dto: CreateGameDto): Promise<{
@@ -55,6 +67,12 @@ export declare class GamesController {
         publisher: string | null;
         releaseDate: Date | null;
         systemRequirements: string | null;
+        minimumSystemRequirements: string | null;
+        recommendedSystemRequirements: string | null;
+        features: string[];
+        supportedLanguages: string[];
+        activationRegion: string | null;
+        ageRating: string | null;
         screenshots: string[];
     }>;
     update(id: string, dto: UpdateGameDto): Promise<{
@@ -71,6 +89,12 @@ export declare class GamesController {
         publisher: string | null;
         releaseDate: Date | null;
         systemRequirements: string | null;
+        minimumSystemRequirements: string | null;
+        recommendedSystemRequirements: string | null;
+        features: string[];
+        supportedLanguages: string[];
+        activationRegion: string | null;
+        ageRating: string | null;
         screenshots: string[];
     }>;
     delete(id: string): Promise<{
@@ -87,6 +111,12 @@ export declare class GamesController {
         publisher: string | null;
         releaseDate: Date | null;
         systemRequirements: string | null;
+        minimumSystemRequirements: string | null;
+        recommendedSystemRequirements: string | null;
+        features: string[];
+        supportedLanguages: string[];
+        activationRegion: string | null;
+        ageRating: string | null;
         screenshots: string[];
     }>;
 }

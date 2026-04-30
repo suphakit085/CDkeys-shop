@@ -27,7 +27,7 @@ let UploadController = class UploadController {
     }
     async uploadImage(file, folder = 'general') {
         if (!file) {
-            throw new Error('No file uploaded');
+            throw new common_1.BadRequestException('No file uploaded');
         }
         if (this.cloudinaryService.isEnabled()) {
             const result = await this.cloudinaryService.uploadImage(file, folder);

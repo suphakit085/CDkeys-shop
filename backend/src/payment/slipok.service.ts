@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isConfiguredSet } from '../common/env';
 
 export interface SlipVerificationResult {
     success: boolean;
@@ -24,10 +25,12 @@ export class SlipOkService {
     async verifySlip(slipPath: string): Promise<SlipVerificationResult> {
         this.logger.log(`SlipOK Config - API Key: ${this.apiKey ? 'SET (length: ' + this.apiKey.length + ')' : 'NOT SET'}, Branch ID: ${this.branchId || 'NOT SET'}`);
 
-        if (!this.apiKey || !this.branchId) {
+        if (!this.isConfigured()) {
             this.logger.warn('SlipOK API not configured - skipping auto verification');
             return { success: false, message: 'SlipOK API not configured' };
         }
+        const apiKey = this.apiKey as string;
+        const branchId = this.branchId as string;
 
         const fullPath = path.join(process.cwd(), slipPath);
         this.logger.log(`Checking slip file at: ${fullPath}`);
@@ -45,14 +48,14 @@ export class SlipOkService {
             const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
             const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-            this.logger.log(`Calling SlipOK API for branch: ${this.branchId}, file size: ${fileBuffer.length} bytes`);
+            this.logger.log(`Calling SlipOK API for branch: ${branchId}, file size: ${fileBuffer.length} bytes`);
 
             const response = await fetch(
-                `https://api.slipok.com/api/line/apikey/${this.branchId}`,
+                `https://api.slipok.com/api/line/apikey/${branchId}`,
                 {
                     method: 'POST',
                     headers: {
-                        'x-authorization': this.apiKey,
+                        'x-authorization': apiKey,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
@@ -99,7 +102,6 @@ export class SlipOkService {
     }
 
     isConfigured(): boolean {
-        // TODO: SlipOK disabled - re-enable when API key is working
-        return false;
+        return isConfiguredSet(this.apiKey, this.branchId);
     }
 }

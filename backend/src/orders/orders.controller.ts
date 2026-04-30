@@ -26,6 +26,21 @@ export class OrdersController {
         return this.ordersService.findByUser(req.user.id);
     }
 
+    // Admin endpoints
+    @Get('admin/all')
+    @UseGuards(RolesGuard)
+    @Roles(Role.ADMIN)
+    async findAll() {
+        return this.ordersService.findAll();
+    }
+
+    @Get('admin/stats')
+    @UseGuards(RolesGuard)
+    @Roles(Role.ADMIN)
+    async getSalesStats() {
+        return this.ordersService.getSalesStats();
+    }
+
     @Get(':id')
     async findOne(
         @Param('id') id: string,
@@ -60,20 +75,5 @@ export class OrdersController {
         @Request() req: { user: { id: string } },
     ) {
         return this.ordersService.cancelOrder(id, req.user.id);
-    }
-
-    // Admin endpoints
-    @Get('admin/all')
-    @UseGuards(RolesGuard)
-    @Roles(Role.ADMIN)
-    async findAll() {
-        return this.ordersService.findAll();
-    }
-
-    @Get('admin/stats')
-    @UseGuards(RolesGuard)
-    @Roles(Role.ADMIN)
-    async getSalesStats() {
-        return this.ordersService.getSalesStats();
     }
 }

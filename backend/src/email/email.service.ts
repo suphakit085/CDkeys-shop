@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { isConfiguredSet, isConfiguredValue } from '../common/env';
 
 interface OrderDetails {
     orderId: string;
@@ -27,7 +28,7 @@ export class EmailService {
     private initializeTransporter() {
         // Check for Resend API first (preferred for cloud platforms)
         const resendKey = process.env.RESEND_API_KEY;
-        if (resendKey) {
+        if (isConfiguredValue(resendKey)) {
             this.resendApiKey = resendKey;
             this.useResend = true;
             this.logger.log('Email service initialized with Resend API');
@@ -40,7 +41,7 @@ export class EmailService {
         const user = process.env.SMTP_USER;
         const pass = process.env.SMTP_PASS;
 
-        if (!host || !user || !pass) {
+        if (!isConfiguredSet(host, user, pass)) {
             this.logger.warn('Email not configured - email sending disabled');
             return;
         }

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import * as streamifier from 'streamifier';
+import { isConfiguredSet } from '../common/env';
 
 @Injectable()
 export class CloudinaryService {
@@ -12,16 +13,16 @@ export class CloudinaryService {
         const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
         const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
 
-        if (cloudName && apiKey && apiSecret) {
+        if (isConfiguredSet(cloudName, apiKey, apiSecret)) {
             cloudinary.config({
                 cloud_name: cloudName,
                 api_key: apiKey,
                 api_secret: apiSecret,
             });
             this.isConfigured = true;
-            console.log('✅ Cloudinary configured successfully');
+            console.log('Cloudinary configured successfully');
         } else {
-            console.log('⚠️ Cloudinary not configured - using local storage fallback');
+            console.log('Cloudinary not configured - using local storage fallback');
         }
     }
 

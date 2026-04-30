@@ -23,6 +23,12 @@ class CreateGameDto {
     publisher;
     releaseDate;
     systemRequirements;
+    minimumSystemRequirements;
+    recommendedSystemRequirements;
+    features;
+    supportedLanguages;
+    activationRegion;
+    ageRating;
     screenshots;
 }
 exports.CreateGameDto = CreateGameDto;
@@ -76,6 +82,38 @@ __decorate([
     __metadata("design:type", String)
 ], CreateGameDto.prototype, "systemRequirements", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateGameDto.prototype, "minimumSystemRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateGameDto.prototype, "recommendedSystemRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateGameDto.prototype, "features", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateGameDto.prototype, "supportedLanguages", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateGameDto.prototype, "activationRegion", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateGameDto.prototype, "ageRating", void 0);
+__decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Array)
@@ -91,6 +129,12 @@ class UpdateGameDto {
     publisher;
     releaseDate;
     systemRequirements;
+    minimumSystemRequirements;
+    recommendedSystemRequirements;
+    features;
+    supportedLanguages;
+    activationRegion;
+    ageRating;
     screenshots;
 }
 exports.UpdateGameDto = UpdateGameDto;
@@ -145,6 +189,38 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateGameDto.prototype, "systemRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateGameDto.prototype, "minimumSystemRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateGameDto.prototype, "recommendedSystemRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], UpdateGameDto.prototype, "features", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], UpdateGameDto.prototype, "supportedLanguages", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateGameDto.prototype, "activationRegion", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateGameDto.prototype, "ageRating", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsOptional)(),

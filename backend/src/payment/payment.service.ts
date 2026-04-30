@@ -36,9 +36,12 @@ export class PaymentService {
         return qrCodeDataUrl;
     }
 
-    async uploadPaymentSlip(orderId: string, slipUrl: string): Promise<SlipUploadResult> {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
+    async uploadPaymentSlip(orderId: string, userId: string, slipUrl: string): Promise<SlipUploadResult> {
+        const order = await this.prisma.order.findFirst({
+            where: {
+                id: orderId,
+                userId,
+            },
             include: {
                 orderItems: {
                     include: {
@@ -50,6 +53,10 @@ export class PaymentService {
 
         if (!order) {
             throw new NotFoundException('Order not found');
+        }
+
+        if (order.status !== 'PENDING') {
+            throw new BadRequestException('Only pending orders can accept payment slips');
         }
 
         // Update slip URL first

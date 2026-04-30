@@ -1,10 +1,11 @@
-import { IsString, IsNotEmpty, IsArray, IsUUID } from 'class-validator';
+import { ArrayNotEmpty, IsString, IsNotEmpty, IsArray, IsUUID } from 'class-validator';
 
 export class AddKeysDto {
     @IsUUID()
     gameId: string;
 
     @IsArray()
+    @ArrayNotEmpty()
     @IsString({ each: true })
     @IsNotEmpty({ each: true })
     keys: string[];

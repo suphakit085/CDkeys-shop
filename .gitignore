@@ -1,0 +1,13 @@
+.env
+
+# Local tool/cache folders
+codex-home/
+codex-appdata/
+codex-localappdata/
+codex-temp/
+npm-cache/
+.codex-home/
+.codex-appdata/
+.codex-localappdata/
+.npm-cache/
+backend/tmp/

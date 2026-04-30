@@ -10,6 +10,12 @@ export declare class CreateGameDto {
     publisher?: string;
     releaseDate?: string;
     systemRequirements?: string;
+    minimumSystemRequirements?: string;
+    recommendedSystemRequirements?: string;
+    features?: string[];
+    supportedLanguages?: string[];
+    activationRegion?: string;
+    ageRating?: string;
     screenshots?: string[];
 }
 export declare class UpdateGameDto {
@@ -23,5 +29,11 @@ export declare class UpdateGameDto {
     publisher?: string;
     releaseDate?: string;
     systemRequirements?: string;
+    minimumSystemRequirements?: string;
+    recommendedSystemRequirements?: string;
+    features?: string[];
+    supportedLanguages?: string[];
+    activationRegion?: string;
+    ageRating?: string;
     screenshots?: string[];
 }

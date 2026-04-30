@@ -250,6 +250,12 @@ export interface Game {
     publisher?: string;
     releaseDate?: string;
     systemRequirements?: string;
+    minimumSystemRequirements?: string;
+    recommendedSystemRequirements?: string;
+    features?: string[];
+    supportedLanguages?: string[];
+    activationRegion?: string;
+    ageRating?: string;
     screenshots?: string[];
     availableKeys: number;
     createdAt: string;
@@ -320,6 +326,12 @@ export interface CreateGameDto {
     publisher?: string;
     releaseDate?: string;
     systemRequirements?: string;
+    minimumSystemRequirements?: string;
+    recommendedSystemRequirements?: string;
+    features?: string[];
+    supportedLanguages?: string[];
+    activationRegion?: string;
+    ageRating?: string;
     screenshots?: string[];
 }
 

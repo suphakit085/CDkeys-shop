@@ -2,19 +2,28 @@ import { PaymentService } from './payment.service';
 export declare class PaymentController {
     private paymentService;
     constructor(paymentService: PaymentService);
-    uploadSlip(orderId: string, file: Express.Multer.File, req: any): Promise<{
-        message: string;
+    uploadSlip(orderId: string, file: Express.Multer.File, req: {
+        user: {
+            id: string;
+        };
+    }): Promise<{
+        message: any;
         slipUrl: string;
-        autoVerified: boolean;
-        slipData: {
-            amount?: number;
-            transRef?: string;
-        } | undefined;
+        autoVerified: any;
+        slipData: any;
     }>;
-    verifyPayment(orderId: string, req: any): Promise<{
+    verifyPayment(orderId: string, req: {
+        user: {
+            id: string;
+        };
+    }): Promise<{
         message: string;
     }>;
-    rejectPayment(orderId: string, reason: string, req: any): Promise<{
+    rejectPayment(orderId: string, reason: string, req: {
+        user: {
+            id: string;
+        };
+    }): Promise<{
         message: string;
     }>;
     getPendingPayments(): Promise<({

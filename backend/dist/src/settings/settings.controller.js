@@ -33,7 +33,7 @@ let SettingsController = class SettingsController {
     }
     async uploadLogo(file) {
         if (!file) {
-            throw new Error('No file uploaded');
+            throw new common_1.BadRequestException('No file uploaded');
         }
         return {
             url: `/uploads/settings/${file.filename}`,

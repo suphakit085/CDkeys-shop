@@ -45,7 +45,7 @@ let BannersController = class BannersController {
     }
     async uploadImage(file) {
         if (!file) {
-            throw new Error('No file uploaded');
+            throw new common_1.BadRequestException('No file uploaded');
         }
         return {
             url: `/uploads/banners/${file.filename}`,

@@ -28,6 +28,12 @@ let OrdersController = class OrdersController {
     async findMyOrders(req) {
         return this.ordersService.findByUser(req.user.id);
     }
+    async findAll() {
+        return this.ordersService.findAll();
+    }
+    async getSalesStats() {
+        return this.ordersService.getSalesStats();
+    }
     async findOne(id, req) {
         return this.ordersService.findOne(id, req.user.id);
     }
@@ -40,12 +46,6 @@ let OrdersController = class OrdersController {
     async cancelOrder(id, req) {
         return this.ordersService.cancelOrder(id, req.user.id);
     }
-    async findAll() {
-        return this.ordersService.findAll();
-    }
-    async getSalesStats() {
-        return this.ordersService.getSalesStats();
-    }
 };
 exports.OrdersController = OrdersController;
 __decorate([
@@ -55,6 +55,22 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findMyOrders", null);
+__decorate([
+    (0, common_1.Get)('admin/all'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('admin/stats'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getSalesStats", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -87,22 +103,6 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "cancelOrder", null);
-__decorate([
-    (0, common_1.Get)('admin/all'),
-    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], OrdersController.prototype, "findAll", null);
-__decorate([
-    (0, common_1.Get)('admin/stats'),
-    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], OrdersController.prototype, "getSalesStats", null);
 exports.OrdersController = OrdersController = __decorate([
     (0, common_1.Controller)('orders'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
