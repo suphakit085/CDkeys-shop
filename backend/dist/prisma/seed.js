@@ -68,7 +68,7 @@ async function main() {
             description: 'An open-world action-adventure RPG set in Night City.',
             platform: client_1.Platform.STEAM,
             genre: 'RPG',
-            price: 59.99,
+            price: 1590,
             imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400',
         },
         {
@@ -76,7 +76,7 @@ async function main() {
             description: 'An action RPG developed by FromSoftware and published by Bandai Namco.',
             platform: client_1.Platform.STEAM,
             genre: 'Action',
-            price: 59.99,
+            price: 1790,
             imageUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=400',
         },
         {
@@ -84,7 +84,7 @@ async function main() {
             description: 'An epic tale of life in America at the dawn of the modern age.',
             platform: client_1.Platform.STEAM,
             genre: 'Adventure',
-            price: 49.99,
+            price: 1290,
             imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400',
         },
         {
@@ -92,7 +92,7 @@ async function main() {
             description: 'The latest installment in the iconic football simulation series.',
             platform: client_1.Platform.PLAYSTATION,
             genre: 'Sports',
-            price: 69.99,
+            price: 1990,
             imageUrl: 'https://images.unsplash.com/photo-1493711662062-fa541f7f950b?w=400',
         },
         {
@@ -100,7 +100,7 @@ async function main() {
             description: 'The legendary Halo series returns with the most expansive Master Chief story yet.',
             platform: client_1.Platform.XBOX,
             genre: 'Shooter',
-            price: 59.99,
+            price: 1590,
             imageUrl: 'https://images.unsplash.com/photo-1552820728-8b83bb6b2b0c?w=400',
         },
         {
@@ -108,7 +108,7 @@ async function main() {
             description: 'An epic adventure awaits in the vast landscapes of Hyrule.',
             platform: client_1.Platform.NINTENDO,
             genre: 'Adventure',
-            price: 69.99,
+            price: 2090,
             imageUrl: 'https://images.unsplash.com/photo-1566577134770-3d85bb3a9cc4?w=400',
         },
         {
@@ -116,15 +116,15 @@ async function main() {
             description: 'When a young street hustler, a retired bank robber and a terrifying psychopath find themselves entangled with some of the most frightening criminals in the underworld.',
             platform: client_1.Platform.STEAM,
             genre: 'Action',
-            price: 29.99,
+            price: 699,
             imageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400',
         },
         {
-            title: 'Assassin\'s Creed Valhalla',
+            title: "Assassin's Creed Valhalla",
             description: 'Become Eivor, a Viking raider raised to be a fearless warrior.',
             platform: client_1.Platform.UPLAY,
             genre: 'Action',
-            price: 39.99,
+            price: 1090,
             imageUrl: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400',
         },
         {
@@ -132,7 +132,7 @@ async function main() {
             description: 'Experience the dawn of all-out war in 2042.',
             platform: client_1.Platform.ORIGIN,
             genre: 'Shooter',
-            price: 34.99,
+            price: 899,
             imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400',
         },
         {
@@ -140,7 +140,7 @@ async function main() {
             description: 'Build, explore and save the world from monsters.',
             platform: client_1.Platform.EPIC,
             genre: 'Action',
-            price: 19.99,
+            price: 499,
             imageUrl: 'https://images.unsplash.com/photo-1589241062272-c0a000072dfa?w=400',
         },
     ];
@@ -182,7 +182,9 @@ async function main() {
                 ...enrichedGameData,
             },
         });
-        const existingKeys = await prisma.cdKey.count({ where: { gameId: game.id } });
+        const existingKeys = await prisma.cdKey.count({
+            where: { gameId: game.id },
+        });
         if (existingKeys === 0) {
             const sampleKeys = Array.from({ length: 10 }, (_, i) => ({
                 gameId: game.id,

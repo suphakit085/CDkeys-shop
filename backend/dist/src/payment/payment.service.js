@@ -382,7 +382,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
         return secret;
     }
     getStripeCurrency() {
-        return (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+        return (process.env.STRIPE_CURRENCY || 'thb').toLowerCase();
     }
     getFrontendUrl() {
         return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
