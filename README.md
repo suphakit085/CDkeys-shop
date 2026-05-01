@@ -87,7 +87,7 @@ FRONTEND_URL="https://your-vercel-frontend-url"
 PROMPTPAY_ID="..."
 STRIPE_SECRET_KEY="sk_test_or_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_CURRENCY=usd
+STRIPE_CURRENCY=thb
 ```
 
 Recommended production variables when uploads/emails are enabled:
@@ -133,7 +133,7 @@ PromptPay remains the default payment method. Stripe is optional but needs these
 ```bash
 STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_CURRENCY=usd
+STRIPE_CURRENCY=thb
 FRONTEND_URL="http://localhost:3000"
 ```
 

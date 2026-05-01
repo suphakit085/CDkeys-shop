@@ -139,7 +139,7 @@ export default function StorePage() {
                             min="0"
                             value={minPrice}
                             onChange={(event) => setMinPrice(event.target.value)}
-                            placeholder="$0"
+                            placeholder="0 THB"
                             className="input"
                         />
                     </label>
@@ -151,7 +151,7 @@ export default function StorePage() {
                             min="0"
                             value={maxPrice}
                             onChange={(event) => setMaxPrice(event.target.value)}
-                            placeholder="$100"
+                            placeholder="1000 THB"
                             className="input"
                         />
                     </label>

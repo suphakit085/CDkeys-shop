@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi, paymentApi, Order } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatMoney } from '@/lib/currency';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -135,7 +136,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <div>
                         <p className="text-gray-400 text-sm">Total</p>
                         <p className="text-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                            ${Number(order.total).toFixed(2)}
+                            {formatMoney(order.total)}
                         </p>
                     </div>
                 </div>
@@ -179,7 +180,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                 <h3 className="font-bold text-white">{item.game.title}</h3>
                                 <p className="text-gray-400 text-sm">{item.game.platform}</p>
                             </div>
-                            <p className="text-white font-bold">${Number(item.price).toFixed(2)}</p>
+                            <p className="text-white font-bold">{formatMoney(item.price)}</p>
                         </div>
 
                         {order.status === 'COMPLETED' && item.cdKey ? (

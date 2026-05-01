@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { paymentApi, PendingPayment } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUploadUrl } from '@/lib/config';
+import { formatMoney } from '@/lib/currency';
 import {
   AdminAccessRequired,
   AdminEmpty,
@@ -14,12 +15,6 @@ import {
   AdminShell,
   AdminStatCard,
 } from '@/components/admin/AdminUI';
-
-function formatMoney(value: number) {
-  return `THB ${value.toLocaleString('th-TH', {
-    minimumFractionDigits: 2,
-  })}`;
-}
 
 export default function VerifyPaymentsPage() {
   const { token, isAdmin, isLoading: authLoading } = useAuth();

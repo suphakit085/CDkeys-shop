@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Game, Platform } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useCart } from '@/contexts/CartContext';
+import { formatMoney } from '@/lib/currency';
 
 interface GameCardProps {
     game: Game;
@@ -82,7 +83,7 @@ export default function GameCard({ game }: GameCardProps) {
                 <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/10 pt-4">
                     <div>
                         <p className="text-xs font-bold uppercase text-gray-500">Price</p>
-                        <p className="mt-1 text-2xl font-black text-white">${Number(game.price).toFixed(2)}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{formatMoney(game.price)}</p>
                     </div>
                     <button
                         onClick={() => addItem(game)}

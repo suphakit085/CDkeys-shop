@@ -542,7 +542,7 @@ export class PaymentService {
   }
 
   private getStripeCurrency(): string {
-    return (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+    return (process.env.STRIPE_CURRENCY || 'thb').toLowerCase();
   }
 
   private getFrontendUrl(): string {

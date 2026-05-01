@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ordersApi, paymentApi, PaymentMethod } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
+import { formatMoney } from '@/lib/currency';
 
 export default function CartPage() {
   const { items, total, updateQuantity, removeItem, clearCart } = useCart();
@@ -110,7 +111,7 @@ export default function CartPage() {
                     {item.game.platform}
                   </p>
                   <p className="mt-2 font-black text-[color:var(--foreground)]">
-                    ${Number(item.game.price).toFixed(2)}
+                    {formatMoney(item.game.price)}
                   </p>
                 </div>
 
@@ -138,7 +139,7 @@ export default function CartPage() {
 
                   <div className="text-left sm:text-right">
                     <p className="font-black text-[color:var(--foreground)]">
-                      ${(Number(item.game.price) * item.quantity).toFixed(2)}
+                      {formatMoney(Number(item.game.price) * item.quantity)}
                     </p>
                     <button
                       onClick={() => removeItem(item.game.id)}
@@ -164,7 +165,7 @@ export default function CartPage() {
                 Subtotal ({items.length} {items.length === 1 ? 'item' : 'items'})
               </span>
               <span className="font-black text-[color:var(--foreground)]">
-                ${total.toFixed(2)}
+                {formatMoney(total)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -178,7 +179,7 @@ export default function CartPage() {
               Total
             </span>
             <span className="text-3xl font-black text-[color:var(--foreground)]">
-              ${total.toFixed(2)}
+              {formatMoney(total)}
             </span>
           </div>
 

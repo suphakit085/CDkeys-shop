@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Game, gamesApi, Platform } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useCart } from '@/contexts/CartContext';
+import { formatMoney } from '@/lib/currency';
 
 const platformStyles: Record<Platform, string> = {
     STEAM: 'badge-steam',
@@ -40,10 +41,6 @@ function toLines(value?: string) {
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
-}
-
-function formatPrice(price: number) {
-    return `$${Number(price).toFixed(2)}`;
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -97,7 +94,7 @@ function RelatedGameTile({ game }: { game: Game }) {
                 <div className="mt-3 flex items-end justify-between gap-3">
                     <div>
                         <p className="text-xs font-bold text-slate-400">{game.genre}</p>
-                        <p className="mt-1 text-xl font-black text-slate-950">{formatPrice(game.price)}</p>
+                        <p className="mt-1 text-xl font-black text-slate-950">{formatMoney(game.price)}</p>
                     </div>
                     <span className={`rounded-full px-3 py-1 text-xs font-black ${inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                         {inStock ? 'พร้อมส่ง' : 'หมด'}
@@ -353,7 +350,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                         <p className="text-sm font-bold text-slate-500">ราคาสินค้า</p>
                         <div className="mt-1 flex items-end justify-between gap-4">
-                            <p className="text-4xl font-black text-slate-950">{formatPrice(game.price)}</p>
+                            <p className="text-4xl font-black text-slate-950">{formatMoney(game.price)}</p>
                             <span className={`rounded-full px-3 py-1 text-xs font-black ${inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                                 {inStock ? `${game.availableKeys} คีย์` : 'หมด'}
                             </span>

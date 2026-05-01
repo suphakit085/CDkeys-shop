@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { gamesApi, Game, Platform, CreateGameDto, PaginationMeta } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL, getUploadUrl } from '@/lib/config';
+import { formatMoney } from '@/lib/currency';
 import {
   AdminEmpty,
   AdminPageSkeleton,
@@ -527,7 +528,7 @@ export default function AdminGames() {
 
                 <div className="admin-meta-row mb-4">
                   <span>{game.platform}</span>
-                  <span>${Number(game.price).toFixed(2)}</span>
+                  <span>{formatMoney(game.price)}</span>
                   <span>{game.activationRegion || 'Global'}</span>
                 </div>
 

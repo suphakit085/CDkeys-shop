@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi, Order } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatMoney } from '@/lib/currency';
 
 export default function OrdersPage() {
     const { user, token, isLoading: authLoading } = useAuth();
@@ -113,7 +114,7 @@ export default function OrdersPage() {
                                 {new Date(order.createdAt).toLocaleDateString()} •{' '}
                                 {order.orderItems.length} items
                             </span>
-                            <span className="text-white font-bold">${Number(order.total).toFixed(2)}</span>
+                            <span className="text-white font-bold">{formatMoney(order.total)}</span>
                         </div>
                     </Link>
                 ))}

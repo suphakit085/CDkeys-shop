@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi, paymentApi, Order } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatMoney } from '@/lib/currency';
 
 export default function PromptPayCheckoutPage({ params }: { params: Promise<{ orderId: string }> }) {
     const { orderId } = use(params);
@@ -175,7 +176,7 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                 <div className="text-center mb-6">
                     <p className="text-gray-400 mb-2">ยอดชำระ</p>
                     <p className="text-4xl font-bold text-white">
-                        ฿{Number(order.total).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        {formatMoney(order.total)}
                     </p>
                 </div>
 
@@ -187,7 +188,7 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                         <li>2. ตรวจสอบยอดเงินให้ถูกต้อง</li>
                         <li>3. กดยืนยันการโอนเงิน</li>
                         <li>4. ถ่ายภาพหน้าจอหลักฐานการโอนเงิน (Slip)</li>
-                        <li>5. กดปุ่ม "อัปโหลดหลักฐาน" ด้านล่าง</li>
+                        <li>5. กดปุ่ม &quot;อัปโหลดหลักฐาน&quot; ด้านล่าง</li>
                     </ol>
                 </div>
             </div>
@@ -262,7 +263,7 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                                 <p className="text-white text-sm truncate">{item.game.title}</p>
                                 <p className="text-gray-400 text-xs">{item.game.platform}</p>
                             </div>
-                            <p className="text-white font-medium">฿{Number(item.price).toFixed(2)}</p>
+                            <p className="text-white font-medium">{formatMoney(item.price)}</p>
                         </div>
                     ))}
                 </div>
