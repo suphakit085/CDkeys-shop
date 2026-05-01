@@ -18,6 +18,8 @@ export declare class PaymentService {
     generatePromptPayQR(amount: number, orderId: string): Promise<string>;
     uploadPaymentSlip(orderId: string, userId: string, slipUrl: string): Promise<SlipUploadResult>;
     private notifyAdminPendingPayment;
+    private markPaymentVerified;
+    private sendCompletedOrderEmails;
     verifyPayment(orderId: string, adminId: string): Promise<void>;
     rejectPayment(orderId: string, adminId: string, reason?: string): Promise<void>;
     getPendingPayments(): Promise<({
@@ -37,16 +39,14 @@ export declare class PaymentService {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
         total: import("@prisma/client/runtime/library").Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -55,5 +55,7 @@ export declare class PaymentService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
 }

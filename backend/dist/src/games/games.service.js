@@ -41,24 +41,59 @@ let GamesService = class GamesService {
                 mode: 'insensitive',
             };
         }
-        const games = await this.prisma.game.findMany({
-            where,
-            include: {
-                _count: {
-                    select: {
-                        cdKeys: {
-                            where: { status: client_1.KeyStatus.AVAILABLE },
-                        },
+        const include = {
+            _count: {
+                select: {
+                    cdKeys: {
+                        where: { status: client_1.KeyStatus.AVAILABLE },
                     },
                 },
             },
-            orderBy: { createdAt: 'desc' },
-        });
-        return games.map((game) => ({
+        };
+        const pagination = this.getPagination(filters);
+        const mapGame = (game) => ({
             ...game,
             availableKeys: game._count.cdKeys,
             _count: undefined,
-        }));
+        });
+        if (!pagination) {
+            const games = await this.prisma.game.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+            });
+            return games.map(mapGame);
+        }
+        const [games, total] = await this.prisma.$transaction([
+            this.prisma.game.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+                skip: (pagination.page - 1) * pagination.limit,
+                take: pagination.limit,
+            }),
+            this.prisma.game.count({ where }),
+        ]);
+        const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+        return {
+            data: games.map(mapGame),
+            meta: {
+                page: pagination.page,
+                limit: pagination.limit,
+                total,
+                totalPages,
+                hasNext: pagination.page < totalPages,
+                hasPrevious: pagination.page > 1,
+            },
+        };
+    }
+    getPagination(options) {
+        if (options?.page === undefined && options?.limit === undefined) {
+            return null;
+        }
+        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
+        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+        return { page, limit };
     }
     async findOne(id) {
         const game = await this.prisma.game.findUnique({

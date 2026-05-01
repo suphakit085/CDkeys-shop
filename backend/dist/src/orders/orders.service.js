@@ -189,18 +189,69 @@ let OrdersService = class OrdersService {
             data: { status: client_1.OrderStatus.FAILED },
         });
     }
-    async findAll() {
-        return this.prisma.order.findMany({
-            include: {
-                user: { select: { email: true, name: true } },
-                orderItems: {
-                    include: {
-                        game: { select: { title: true, platform: true } },
-                    },
+    async findAll(filters) {
+        const where = {};
+        if (filters?.status) {
+            where.status = filters.status;
+        }
+        if (filters?.paymentStatus) {
+            where.paymentStatus = filters.paymentStatus;
+        }
+        if (filters?.search) {
+            where.OR = [
+                { id: { contains: filters.search, mode: 'insensitive' } },
+                { user: { email: { contains: filters.search, mode: 'insensitive' } } },
+                { user: { name: { contains: filters.search, mode: 'insensitive' } } },
+                { orderItems: { some: { game: { title: { contains: filters.search, mode: 'insensitive' } } } } },
+            ];
+        }
+        const include = {
+            user: { select: { email: true, name: true } },
+            orderItems: {
+                include: {
+                    game: { select: { id: true, title: true, platform: true, imageUrl: true } },
+                    cdKey: { select: { keyCode: true } },
                 },
             },
-            orderBy: { createdAt: 'desc' },
-        });
+        };
+        const pagination = this.getPagination(filters);
+        if (!pagination) {
+            return this.prisma.order.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+            });
+        }
+        const [orders, total] = await this.prisma.$transaction([
+            this.prisma.order.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+                skip: (pagination.page - 1) * pagination.limit,
+                take: pagination.limit,
+            }),
+            this.prisma.order.count({ where }),
+        ]);
+        const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+        return {
+            data: orders,
+            meta: {
+                page: pagination.page,
+                limit: pagination.limit,
+                total,
+                totalPages,
+                hasNext: pagination.page < totalPages,
+                hasPrevious: pagination.page > 1,
+            },
+        };
+    }
+    getPagination(options) {
+        if (options?.page === undefined && options?.limit === undefined) {
+            return null;
+        }
+        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
+        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+        return { page, limit };
     }
     async getSalesStats() {
         const [totalSales, totalOrders, recentOrders] = await Promise.all([

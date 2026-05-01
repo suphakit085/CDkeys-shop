@@ -27,6 +27,8 @@ export class GamesController {
         @Query('minPrice') minPrice?: string,
         @Query('maxPrice') maxPrice?: string,
         @Query('search') search?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
     ) {
         return this.gamesService.findAll({
             platform,
@@ -34,7 +36,18 @@ export class GamesController {
             minPrice: minPrice ? parseFloat(minPrice) : undefined,
             maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
             search,
+            page: this.parsePositiveInt(page),
+            limit: this.parsePositiveInt(limit),
         });
+    }
+
+    private parsePositiveInt(value?: string) {
+        if (!value) {
+            return undefined;
+        }
+
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
     }
 
     @Get('genres')

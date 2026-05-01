@@ -131,6 +131,19 @@ export const gamesApi = {
         return request<Game[]>(`/games${queryString ? `?${queryString}` : ''}`);
     },
 
+    getPage: (params?: { platform?: string; genre?: string; minPrice?: number; maxPrice?: number; search?: string; page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.platform) query.set('platform', params.platform);
+        if (params?.genre) query.set('genre', params.genre);
+        if (params?.minPrice !== undefined) query.set('minPrice', params.minPrice.toString());
+        if (params?.maxPrice !== undefined) query.set('maxPrice', params.maxPrice.toString());
+        if (params?.search) query.set('search', params.search);
+        if (params?.page) query.set('page', params.page.toString());
+        if (params?.limit) query.set('limit', params.limit.toString());
+        const queryString = query.toString();
+        return request<PaginatedResult<Game>>(`/games${queryString ? `?${queryString}` : ''}`);
+    },
+
     getOne: (id: string) => request<Game>(`/games/${id}`),
 
     getGenres: () => request<string[]>('/games/genres'),
@@ -188,6 +201,17 @@ export const ordersApi = {
     getAll: (token: string) =>
         request<Order[]>('/orders/admin/all', { token }),
 
+    getPage: (token: string, params?: { page?: number; limit?: number; search?: string; status?: string; paymentStatus?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.set('page', params.page.toString());
+        if (params?.limit) query.set('limit', params.limit.toString());
+        if (params?.search) query.set('search', params.search);
+        if (params?.status) query.set('status', params.status);
+        if (params?.paymentStatus) query.set('paymentStatus', params.paymentStatus);
+        const queryString = query.toString();
+        return request<PaginatedResult<Order>>(`/orders/admin/all${queryString ? `?${queryString}` : ''}`, { token });
+    },
+
     getSalesStats: (token: string) =>
         request<SalesStats>('/orders/admin/stats', { token }),
 };
@@ -230,6 +254,20 @@ export const paymentApi = {
 };
 
 // Types
+export interface PaginationMeta {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+}
+
+export interface PaginatedResult<T> {
+    data: T[];
+    meta: PaginationMeta;
+}
+
 export interface User {
     id: string;
     email: string;

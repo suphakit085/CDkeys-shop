@@ -5,6 +5,7 @@ import {
     Delete,
     Body,
     Param,
+    Query,
     UseGuards,
     Request,
 } from '@nestjs/common';
@@ -13,7 +14,7 @@ import { CreateOrderDto, ProcessPaymentDto } from './dto/orders.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Role } from '@prisma/client';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -30,8 +31,20 @@ export class OrdersController {
     @Get('admin/all')
     @UseGuards(RolesGuard)
     @Roles(Role.ADMIN)
-    async findAll() {
-        return this.ordersService.findAll();
+    async findAll(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('search') search?: string,
+        @Query('status') status?: string,
+        @Query('paymentStatus') paymentStatus?: string,
+    ) {
+        return this.ordersService.findAll({
+            page: this.parsePositiveInt(page),
+            limit: this.parsePositiveInt(limit),
+            search,
+            status: this.parseOrderStatus(status),
+            paymentStatus: this.parsePaymentStatus(paymentStatus),
+        });
     }
 
     @Get('admin/stats')
@@ -75,5 +88,26 @@ export class OrdersController {
         @Request() req: { user: { id: string } },
     ) {
         return this.ordersService.cancelOrder(id, req.user.id);
+    }
+
+    private parsePositiveInt(value?: string) {
+        if (!value) {
+            return undefined;
+        }
+
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    }
+
+    private parseOrderStatus(value?: string) {
+        return Object.values(OrderStatus).includes(value as OrderStatus)
+            ? value as OrderStatus
+            : undefined;
+    }
+
+    private parsePaymentStatus(value?: string) {
+        return Object.values(PaymentStatus).includes(value as PaymentStatus)
+            ? value as PaymentStatus
+            : undefined;
     }
 }

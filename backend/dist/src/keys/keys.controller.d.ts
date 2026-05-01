@@ -19,13 +19,13 @@ export declare class KeysController {
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     getStats(gameId?: string): Promise<Record<string, number>>;
     addKeys(dto: AddKeysDto): Promise<{
@@ -34,23 +34,23 @@ export declare class KeysController {
     }>;
     updateStatus(id: string, dto: UpdateKeyStatusDto): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     deleteKey(id: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     releaseExpired(minutes?: string): Promise<{
         released: number;

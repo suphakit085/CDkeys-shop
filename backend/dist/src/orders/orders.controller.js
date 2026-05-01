@@ -28,8 +28,14 @@ let OrdersController = class OrdersController {
     async findMyOrders(req) {
         return this.ordersService.findByUser(req.user.id);
     }
-    async findAll() {
-        return this.ordersService.findAll();
+    async findAll(page, limit, search, status, paymentStatus) {
+        return this.ordersService.findAll({
+            page: this.parsePositiveInt(page),
+            limit: this.parsePositiveInt(limit),
+            search,
+            status: this.parseOrderStatus(status),
+            paymentStatus: this.parsePaymentStatus(paymentStatus),
+        });
     }
     async getSalesStats() {
         return this.ordersService.getSalesStats();
@@ -46,6 +52,23 @@ let OrdersController = class OrdersController {
     async cancelOrder(id, req) {
         return this.ordersService.cancelOrder(id, req.user.id);
     }
+    parsePositiveInt(value) {
+        if (!value) {
+            return undefined;
+        }
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    }
+    parseOrderStatus(value) {
+        return Object.values(client_1.OrderStatus).includes(value)
+            ? value
+            : undefined;
+    }
+    parsePaymentStatus(value) {
+        return Object.values(client_1.PaymentStatus).includes(value)
+            ? value
+            : undefined;
+    }
 };
 exports.OrdersController = OrdersController;
 __decorate([
@@ -59,8 +82,13 @@ __decorate([
     (0, common_1.Get)('admin/all'),
     (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
+    __param(3, (0, common_1.Query)('status')),
+    __param(4, (0, common_1.Query)('paymentStatus')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findAll", null);
 __decorate([

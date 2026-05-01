@@ -178,7 +178,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#f5f7fb] py-8 text-slate-900">
+            <div className="product-detail-page min-h-screen bg-[#f5f7fb] py-8 text-slate-900">
                 <div className="page-shell animate-pulse">
                     <div className="mb-6 h-5 w-56 rounded bg-slate-200" />
                     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -199,7 +199,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
 
     if (!game) {
         return (
-            <div className="min-h-screen bg-[#f5f7fb] py-20 text-center text-slate-900">
+            <div className="product-detail-page min-h-screen bg-[#f5f7fb] py-20 text-center text-slate-900">
                 <div className="page-shell">
                     <h1 className="text-3xl font-black">ไม่พบเกมนี้</h1>
                     <p className="mt-3 text-slate-500">เกมนี้อาจถูกลบหรือไม่มีในร้านแล้ว</p>
@@ -222,7 +222,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     const recommendedRequirements = toLines(game.recommendedSystemRequirements);
 
     return (
-        <div className="min-h-screen bg-[#f5f7fb] pb-14 text-slate-900">
+        <div className="product-detail-page min-h-screen bg-[#f5f7fb] pb-14 text-slate-900">
             <div className="border-b border-slate-200 bg-white">
                 <div className="page-shell py-4">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
@@ -240,11 +240,11 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <main className="page-shell py-6">
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                    <section className="grid gap-6 lg:grid-cols-[430px_minmax(0,1fr)]">
+                <div className="product-hero-card grid gap-6 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.1)] xl:grid-cols-[minmax(0,1fr)_480px]">
+                    <section className="min-w-0">
                         <div className="min-w-0">
-                            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.08)]">
-                                <div className="relative aspect-[16/11] bg-slate-900">
+                            <div className="overflow-hidden rounded-lg bg-slate-900 shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
+                                <div className="relative aspect-[16/10] min-h-[320px] bg-slate-900 xl:min-h-[520px]">
                                     {activeImageSrc ? (
                                         <img src={activeImageSrc} alt={game.title} className="absolute inset-0 h-full w-full object-cover" />
                                     ) : (
@@ -252,6 +252,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                                             {fallbackInitials(game.title)}
                                         </div>
                                     )}
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 to-transparent" />
                                     <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                                         <span className={`badge ${platformStyles[game.platform]}`}>{platformLabels[game.platform]}</span>
                                         <span className={`badge ${inStock ? 'badge-available' : 'badge-sold'}`}>
@@ -277,7 +278,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             )}
                         </div>
 
-                        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)]">
+                        <div className="hidden">
                             <div className="flex flex-wrap gap-2">
                                 <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black uppercase text-teal-700">
                                     Digital key
@@ -303,7 +304,53 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </section>
 
-                    <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5 shadow-[0_16px_44px_rgba(15,23,42,0.1)] xl:sticky xl:top-24">
+                    <aside className="product-buy-panel h-fit rounded-lg border border-slate-200 bg-slate-50 p-5 xl:sticky xl:top-24">
+                        <div className="mb-5 overflow-hidden rounded-lg bg-slate-900">
+                            {activeImageSrc ? (
+                                <img src={activeImageSrc} alt={game.title} className="h-28 w-full object-cover" />
+                            ) : (
+                                <div className="flex h-28 items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-3xl font-black text-white/30">
+                                    {fallbackInitials(game.title)}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black uppercase text-teal-700">
+                                Digital key
+                            </span>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase text-slate-600">
+                                {game.genre}
+                            </span>
+                        </div>
+
+                        <h1 className="mt-4 text-3xl font-black leading-tight text-slate-950">{game.title}</h1>
+                        {game.description && (
+                            <p className="mt-3 text-sm leading-6 text-slate-600">{game.description}</p>
+                        )}
+
+                        <div className="mt-5 rounded-lg bg-[#1d3672] p-4 text-white">
+                            <p className="text-sm font-black">แพลตฟอร์มเกม</p>
+                            <span className={`badge ${platformStyles[game.platform]} mt-3`}>{platformLabels[game.platform]}</span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                            <div className="flex items-center gap-1 text-amber-400">
+                                <span>★</span>
+                                <span>★</span>
+                                <span>★</span>
+                                <span>★</span>
+                                <span>★</span>
+                                <span className="ml-2 font-bold text-slate-600">5.0/5</span>
+                            </div>
+                            <span>{Math.max(1200, game.availableKeys * 97)} views</span>
+                        </div>
+
+                        <div className="mt-5 space-y-1 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">
+                            <p><span className="font-black text-slate-900">Publisher:</span> {game.publisher || 'Not specified'}</p>
+                            <p><span className="font-black text-slate-900">Developer:</span> {game.developer || 'Not specified'}</p>
+                            <p><span className="font-black text-slate-900">Release Date:</span> {formatDate(game.releaseDate)}</p>
+                        </div>
                         <p className="text-sm font-bold text-slate-500">ราคาสินค้า</p>
                         <div className="mt-1 flex items-end justify-between gap-4">
                             <p className="text-4xl font-black text-slate-950">{formatPrice(game.price)}</p>

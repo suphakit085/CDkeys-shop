@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { API_URL, getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SiteSettings {
     storeName: string;
@@ -16,6 +17,7 @@ interface SiteSettings {
 export default function Navbar() {
     const { user, isAdmin, logout } = useAuth();
     const { itemCount } = useCart();
+    const { theme, toggleTheme } = useTheme();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [settings, setSettings] = useState<SiteSettings | null>(null);
 
@@ -34,7 +36,7 @@ export default function Navbar() {
     ];
 
     return (
-        <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#0b0f14]/95 backdrop-blur-xl">
+        <nav className="app-nav fixed inset-x-0 top-0 z-50 border-b backdrop-blur-xl">
             <div className="page-shell">
                 <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-8">
                     <Link href="/" className="flex min-w-0 items-center gap-3" onClick={() => setIsMenuOpen(false)}>
@@ -50,7 +52,7 @@ export default function Navbar() {
                             </div>
                         )}
                         <div className="min-w-0">
-                            <p className="truncate text-base font-black tracking-tight text-white">{storeName}</p>
+                            <p className="app-brand-text truncate text-base font-black tracking-tight">{storeName}</p>
                         </div>
                     </Link>
 
@@ -63,6 +65,23 @@ export default function Navbar() {
                     </div>
 
                     <div className="hidden items-center gap-2 lg:flex">
+                        <button
+                            onClick={toggleTheme}
+                            className="btn-secondary h-9 w-10 px-0"
+                            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                        >
+                            {theme === 'dark' ? (
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" />
+                                </svg>
+                            ) : (
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8Z" />
+                                </svg>
+                            )}
+                        </button>
+
                         <Link href="/cart" className="btn-secondary relative h-9 w-10 px-0" aria-label="Cart">
                             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.5 3m0 0L7 15h10l2-9H5.5Zm3.5 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm8 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
@@ -76,7 +95,7 @@ export default function Navbar() {
 
                         {user ? (
                             <>
-                                <div className="max-w-40 truncate rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-gray-300">
+                                <div className="app-user-chip max-w-40 truncate rounded-lg border px-3 py-2 text-sm">
                                     {user.name}
                                 </div>
                                 <button onClick={logout} className="btn-secondary h-9 px-4 text-sm">
@@ -111,14 +130,21 @@ export default function Navbar() {
                 </div>
 
                 {isMenuOpen && (
-                    <div className="border-t border-white/10 py-3 lg:hidden">
+                    <div className="app-mobile-panel border-t py-3 lg:hidden">
                         <div className="grid gap-1">
+                            <button
+                                onClick={toggleTheme}
+                                className="app-mobile-link flex items-center justify-between rounded-lg px-3 py-3 text-left"
+                            >
+                                <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+                                <span className="text-sm font-black">{theme === 'dark' ? 'ON' : 'OFF'}</span>
+                            </button>
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.href}
                                     href={link.href}
                                     onClick={() => setIsMenuOpen(false)}
-                                    className="rounded-lg px-3 py-3 text-gray-200 hover:bg-white/[0.06]"
+                                    className="app-mobile-link rounded-lg px-3 py-3"
                                 >
                                     {link.label}
                                 </Link>
@@ -126,12 +152,12 @@ export default function Navbar() {
                             <Link
                                 href="/cart"
                                 onClick={() => setIsMenuOpen(false)}
-                                className="rounded-lg px-3 py-3 text-gray-200 hover:bg-white/[0.06]"
+                                className="app-mobile-link rounded-lg px-3 py-3"
                             >
                                 Cart ({itemCount})
                             </Link>
                             {user ? (
-                                <button onClick={logout} className="rounded-lg px-3 py-3 text-left text-gray-200 hover:bg-white/[0.06]">
+                                <button onClick={logout} className="app-mobile-link rounded-lg px-3 py-3 text-left">
                                     Logout ({user.name})
                                 </button>
                             ) : (

@@ -19,13 +19,13 @@ export declare class KeysService {
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     addKeys(gameId: string, keys: string[]): Promise<{
         added: number;
@@ -35,33 +35,33 @@ export declare class KeysService {
     releaseKey(keyId: string): Promise<void>;
     markAsSold(keyId: string, orderItemId: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     updateStatus(keyId: string, status: KeyStatus): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     deleteKey(keyId: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         gameId: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         reservedAt: Date | null;
         orderItemId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getStats(gameId?: string): Promise<Record<string, number>>;
     releaseExpiredReservations(minutesOld?: number): Promise<{

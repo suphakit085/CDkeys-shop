@@ -1,7 +1,15 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { KeysService } from '../keys/keys.service';
 import { PaymentService } from '../payment/payment.service';
+import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { CreateOrderDto } from './dto/orders.dto';
+interface AdminOrderFilters {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: OrderStatus;
+    paymentStatus?: PaymentStatus;
+}
 export declare class OrdersService {
     private prisma;
     private keysService;
@@ -21,17 +29,15 @@ export declare class OrdersService {
         } & {
             id: string;
             createdAt: Date;
-            price: import("@prisma/client/runtime/library").Decimal;
+            price: Prisma.Decimal;
             gameId: string;
             orderId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        total: Prisma.Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -40,6 +46,8 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     findOne(orderId: string, userId: string): Promise<{
         orderItems: ({
@@ -55,17 +63,15 @@ export declare class OrdersService {
         } & {
             id: string;
             createdAt: Date;
-            price: import("@prisma/client/runtime/library").Decimal;
+            price: Prisma.Decimal;
             gameId: string;
             orderId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        total: Prisma.Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -74,6 +80,8 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     createOrder(userId: string, dto: CreateOrderDto): Promise<{
         orderItems: ({
@@ -84,17 +92,15 @@ export declare class OrdersService {
         } & {
             id: string;
             createdAt: Date;
-            price: import("@prisma/client/runtime/library").Decimal;
+            price: Prisma.Decimal;
             gameId: string;
             orderId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        total: Prisma.Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -103,6 +109,8 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     processPayment(orderId: string, userId: string, simulateFail?: boolean): Promise<{
         success: boolean;
@@ -124,17 +132,15 @@ export declare class OrdersService {
             } & {
                 id: string;
                 createdAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
+                price: Prisma.Decimal;
                 gameId: string;
                 orderId: string;
             })[];
         } & {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            status: import("@prisma/client").$Enums.OrderStatus;
             userId: string;
-            total: import("@prisma/client/runtime/library").Decimal;
+            total: Prisma.Decimal;
+            status: import("@prisma/client").$Enums.OrderStatus;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -143,15 +149,15 @@ export declare class OrdersService {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     cancelOrder(orderId: string, userId: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        total: Prisma.Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -160,31 +166,36 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
-    findAll(): Promise<({
+    findAll(filters?: AdminOrderFilters): Promise<({
         user: {
-            email: string;
             name: string;
+            email: string;
         };
         orderItems: ({
             game: {
+                id: string;
                 title: string;
                 platform: import("@prisma/client").$Enums.Platform;
+                imageUrl: string | null;
             };
+            cdKey: {
+                keyCode: string;
+            } | null;
         } & {
             id: string;
             createdAt: Date;
-            price: import("@prisma/client/runtime/library").Decimal;
+            price: Prisma.Decimal;
             gameId: string;
             orderId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        total: Prisma.Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -193,9 +204,59 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-    })[]>;
+        createdAt: Date;
+        updatedAt: Date;
+    })[] | {
+        data: ({
+            user: {
+                name: string;
+                email: string;
+            };
+            orderItems: ({
+                game: {
+                    id: string;
+                    title: string;
+                    platform: import("@prisma/client").$Enums.Platform;
+                    imageUrl: string | null;
+                };
+                cdKey: {
+                    keyCode: string;
+                } | null;
+            } & {
+                id: string;
+                createdAt: Date;
+                price: Prisma.Decimal;
+                gameId: string;
+                orderId: string;
+            })[];
+        } & {
+            id: string;
+            userId: string;
+            total: Prisma.Decimal;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
+            paymentSlipUrl: string | null;
+            qrCodeData: string | null;
+            promptpayRef: string | null;
+            paidAt: Date | null;
+            verifiedBy: string | null;
+            verifiedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
+        })[];
+        meta: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+            hasNext: boolean;
+            hasPrevious: boolean;
+        };
+    }>;
+    private getPagination;
     getSalesStats(): Promise<{
-        totalRevenue: number | import("@prisma/client/runtime/library").Decimal;
+        totalRevenue: number | Prisma.Decimal;
         completedOrders: number;
         ordersByStatus: Record<string, number>;
         recentOrders: ({
@@ -209,17 +270,15 @@ export declare class OrdersService {
             } & {
                 id: string;
                 createdAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
+                price: Prisma.Decimal;
                 gameId: string;
                 orderId: string;
             })[];
         } & {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            status: import("@prisma/client").$Enums.OrderStatus;
             userId: string;
-            total: import("@prisma/client/runtime/library").Decimal;
+            total: Prisma.Decimal;
+            status: import("@prisma/client").$Enums.OrderStatus;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -228,6 +287,9 @@ export declare class OrdersService {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         })[];
     }>;
 }
+export {};

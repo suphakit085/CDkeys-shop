@@ -158,6 +158,7 @@ let KeysService = class KeysService {
             data: {
                 status: client_1.KeyStatus.AVAILABLE,
                 reservedAt: null,
+                orderItemId: null,
             },
         });
         return { released: result.count };

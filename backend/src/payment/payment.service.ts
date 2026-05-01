@@ -42,13 +42,6 @@ export class PaymentService {
                 id: orderId,
                 userId,
             },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
-                    },
-                },
-            },
         });
 
         if (!order) {
@@ -82,69 +75,8 @@ export class PaymentService {
                 if (Math.abs(slipAmount - orderTotal) <= 1) {
                     this.logger.log(`Auto-verifying order ${orderId}: slip amount ${slipAmount} matches order total ${orderTotal}`);
 
-                    // Auto verify payment
-                    for (const item of order.orderItems) {
-                        if (item.cdKey) {
-                            await this.prisma.cdKey.update({
-                                where: { id: item.cdKey.id },
-                                data: { status: 'SOLD' },
-                            });
-                        }
-                    }
-
-                    await this.prisma.order.update({
-                        where: { id: orderId },
-                        data: {
-                            status: 'COMPLETED',
-                            paymentStatus: 'VERIFIED',
-                            paidAt: new Date(),
-                            promptpayRef: verification.transRef,
-                            verifiedBy: 'AUTO_SLIPOK',
-                            verifiedAt: new Date(),
-                        },
-                    });
-
-                    // Send emails for auto-verified orders
-                    const completedOrder = await this.prisma.order.findUnique({
-                        where: { id: orderId },
-                        include: {
-                            user: true,
-                            orderItems: {
-                                include: {
-                                    game: true,
-                                    cdKey: true,
-                                },
-                            },
-                        },
-                    });
-
-                    if (completedOrder && completedOrder.user && this.emailService.isConfigured()) {
-                        const emailItems = completedOrder.orderItems
-                            .filter(item => item.cdKey)
-                            .map(item => ({
-                                gameTitle: item.game.title,
-                                platform: item.game.platform,
-                                cdKey: item.cdKey!.keyCode,
-                            }));
-
-                        // Send CD Keys to customer
-                        await this.emailService.sendCdKeysEmail({
-                            orderId: completedOrder.id,
-                            customerEmail: completedOrder.user.email,
-                            customerName: completedOrder.user.name,
-                            items: emailItems,
-                            total: Number(completedOrder.total),
-                        });
-
-                        // Notify store about new order
-                        await this.emailService.sendNewOrderNotification({
-                            orderId: completedOrder.id,
-                            customerEmail: completedOrder.user.email,
-                            customerName: completedOrder.user.name,
-                            items: emailItems,
-                            total: Number(completedOrder.total),
-                        });
-                    }
+                    await this.markPaymentVerified(orderId, 'AUTO_SLIPOK', verification.transRef);
+                    await this.sendCompletedOrderEmails(orderId);
 
                     return {
                         autoVerified: true,
@@ -210,50 +142,58 @@ export class PaymentService {
         }
     }
 
-    async verifyPayment(orderId: string, adminId: string): Promise<void> {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
+    private async markPaymentVerified(orderId: string, verifiedBy: string, promptpayRef?: string): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    orderItems: {
+                        select: { id: true },
                     },
                 },
-            },
-        });
+            });
 
-        if (!order) {
-            throw new NotFoundException('Order not found');
-        }
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
 
-        if (order.paymentStatus === 'VERIFIED') {
-            throw new BadRequestException('Payment already verified');
-        }
+            if (order.paymentStatus === 'VERIFIED') {
+                throw new BadRequestException('Payment already verified');
+            }
 
-        // Mark keys as SOLD
-        for (const item of order.orderItems) {
-            if (item.cdKey) {
-                await this.prisma.cdKey.update({
-                    where: { id: item.cdKey.id },
-                    data: { status: 'SOLD' },
+            const orderItemIds = order.orderItems.map((item) => item.id);
+
+            if (orderItemIds.length > 0) {
+                await tx.cdKey.updateMany({
+                    where: {
+                        orderItemId: { in: orderItemIds },
+                    },
+                    data: {
+                        status: 'SOLD',
+                    },
                 });
             }
+
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'COMPLETED',
+                    paymentStatus: 'VERIFIED',
+                    paidAt: new Date(),
+                    promptpayRef,
+                    verifiedBy,
+                    verifiedAt: new Date(),
+                },
+            });
+        });
+    }
+
+    private async sendCompletedOrderEmails(orderId: string): Promise<void> {
+        if (!this.emailService.isConfigured()) {
+            return;
         }
 
-        // Update order
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: {
-                status: 'COMPLETED',
-                paymentStatus: 'VERIFIED',
-                paidAt: new Date(),
-                verifiedBy: adminId,
-                verifiedAt: new Date(),
-            },
-        });
-
-        // Send CD Keys via email
-        const fullOrder = await this.prisma.order.findUnique({
+        const completedOrder = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
                 user: true,
@@ -266,70 +206,89 @@ export class PaymentService {
             },
         });
 
-        if (fullOrder && fullOrder.user && this.emailService.isConfigured()) {
-            const emailItems = fullOrder.orderItems
-                .filter(item => item.cdKey)
-                .map(item => ({
-                    gameTitle: item.game.title,
-                    platform: item.game.platform,
-                    cdKey: item.cdKey!.keyCode,
-                }));
+        if (!completedOrder?.user) {
+            return;
+        }
 
+        const emailItems = completedOrder.orderItems
+            .filter(item => item.cdKey)
+            .map(item => ({
+                gameTitle: item.game.title,
+                platform: item.game.platform,
+                cdKey: item.cdKey!.keyCode,
+            }));
+
+        try {
             await this.emailService.sendCdKeysEmail({
-                orderId: fullOrder.id,
-                customerEmail: fullOrder.user.email,
-                customerName: fullOrder.user.name,
+                orderId: completedOrder.id,
+                customerEmail: completedOrder.user.email,
+                customerName: completedOrder.user.name,
                 items: emailItems,
-                total: Number(fullOrder.total),
+                total: Number(completedOrder.total),
             });
 
-            // Notify store about new order
             await this.emailService.sendNewOrderNotification({
-                orderId: fullOrder.id,
-                customerEmail: fullOrder.user.email,
-                customerName: fullOrder.user.name,
+                orderId: completedOrder.id,
+                customerEmail: completedOrder.user.email,
+                customerName: completedOrder.user.name,
                 items: emailItems,
-                total: Number(fullOrder.total),
+                total: Number(completedOrder.total),
             });
+        } catch (error) {
+            this.logger.error(`Failed to send completed order emails for ${orderId}`, error);
         }
     }
 
+    async verifyPayment(orderId: string, adminId: string): Promise<void> {
+        await this.markPaymentVerified(orderId, adminId);
+        await this.sendCompletedOrderEmails(orderId);
+    }
+
     async rejectPayment(orderId: string, adminId: string, reason?: string): Promise<void> {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
+        await this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    orderItems: {
+                        select: { id: true },
                     },
                 },
-            },
-        });
+            });
 
-        if (!order) {
-            throw new NotFoundException('Order not found');
-        }
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
 
-        // Release reserved keys back to AVAILABLE
-        for (const item of order.orderItems) {
-            if (item.cdKey && item.cdKey.status === 'RESERVED') {
-                await this.prisma.cdKey.update({
-                    where: { id: item.cdKey.id },
-                    data: { status: 'AVAILABLE' },
+            if (order.paymentStatus === 'VERIFIED') {
+                throw new BadRequestException('Cannot reject a verified payment');
+            }
+
+            const orderItemIds = order.orderItems.map((item) => item.id);
+
+            if (orderItemIds.length > 0) {
+                await tx.cdKey.updateMany({
+                    where: {
+                        orderItemId: { in: orderItemIds },
+                        status: 'RESERVED',
+                    },
+                    data: {
+                        status: 'AVAILABLE',
+                        reservedAt: null,
+                        orderItemId: null,
+                    },
                 });
             }
-        }
 
-        // Update order status to FAILED
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: {
-                status: 'FAILED',
-                paymentStatus: 'REJECTED',
-                verifiedBy: adminId,
-                verifiedAt: new Date(),
-                promptpayRef: reason,
-            },
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'FAILED',
+                    paymentStatus: 'REJECTED',
+                    verifiedBy: adminId,
+                    verifiedAt: new Date(),
+                    promptpayRef: reason,
+                },
+            });
         });
     }
 

@@ -43,16 +43,14 @@ export declare class PaymentController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.OrderStatus;
         userId: string;
         total: import("@prisma/client/runtime/library").Decimal;
+        status: import("@prisma/client").$Enums.OrderStatus;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -61,5 +59,7 @@ export declare class PaymentController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
 }

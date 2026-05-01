@@ -185,6 +185,7 @@ export class KeysService {
             data: {
                 status: KeyStatus.AVAILABLE,
                 reservedAt: null,
+                orderItemId: null,
             },
         });
 

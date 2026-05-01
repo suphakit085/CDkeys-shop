@@ -111,7 +111,7 @@ export default function HomePage() {
   }
 
   return (
-    <div>
+    <div className="home-page">
       <section className="relative min-h-[460px] overflow-hidden border-b border-white/10 md:min-h-[540px]">
         <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,10,14,0.94)_0%,rgba(7,10,14,0.76)_48%,rgba(7,10,14,0.34)_100%)]" />
@@ -171,100 +171,102 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="page-shell py-8">
-        <div className="flex flex-wrap gap-2">
-          {platforms.map((item) => (
-            <button
-              key={item}
-              onClick={() => setPlatform(item)}
-              className={`h-10 rounded-lg border px-4 text-sm font-bold transition-colors ${platform === item
-                ? 'border-teal-300/70 bg-teal-300/[0.14] text-teal-100'
-                : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/[0.22] hover:bg-white/[0.07]'
-                }`}
-            >
-              {item === 'ALL' ? 'All platforms' : item}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="page-shell pb-14">
-        <div className="surface mb-7 p-4 sm:p-5">
-          <div className="grid gap-4 md:grid-cols-[1fr_220px_220px]">
-            <label className="grid gap-2">
-              <span className="text-sm font-bold text-gray-300">Search</span>
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Try Elden Ring or RPG"
-                className="input"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-bold text-gray-300">Platform</span>
-              <select
-                value={platform}
-                onChange={(event) => setPlatform(event.target.value as Platform | 'ALL')}
-                className="input cursor-pointer"
+      <div className="home-content">
+        <section className="page-shell py-8">
+          <div className="flex flex-wrap gap-2">
+            {platforms.map((item) => (
+              <button
+                key={item}
+                onClick={() => setPlatform(item)}
+                className={`h-10 rounded-lg border px-4 text-sm font-bold transition-colors ${platform === item
+                  ? 'border-teal-300/70 bg-teal-300/[0.14] text-teal-100'
+                  : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/[0.22] hover:bg-white/[0.07]'
+                  }`}
               >
-                {platforms.map((item) => (
-                  <option key={item} value={item} className="bg-[#111821]">
-                    {item === 'ALL' ? 'All platforms' : item}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-bold text-gray-300">Genre</span>
-              <select value={genre} onChange={(event) => setGenre(event.target.value)} className="input cursor-pointer">
-                <option value="ALL" className="bg-[#111821]">All genres</option>
-                {genres.map((item) => (
-                  <option key={item} value={item} className="bg-[#111821]">
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {item === 'ALL' ? 'All platforms' : item}
+              </button>
+            ))}
           </div>
-        </div>
+        </section>
 
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-teal-200">Catalog</p>
-            <h2 className="mt-1 text-2xl font-black text-white sm:text-3xl">Featured keys</h2>
+        <section className="page-shell pb-14">
+          <div className="surface mb-7 p-4 sm:p-5">
+            <div className="grid gap-4 md:grid-cols-[1fr_220px_220px]">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-gray-300">Search</span>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Try Elden Ring or RPG"
+                  className="input"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-gray-300">Platform</span>
+                <select
+                  value={platform}
+                  onChange={(event) => setPlatform(event.target.value as Platform | 'ALL')}
+                  className="input cursor-pointer"
+                >
+                  {platforms.map((item) => (
+                    <option key={item} value={item} className="bg-[#111821]">
+                      {item === 'ALL' ? 'All platforms' : item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-gray-300">Genre</span>
+                <select value={genre} onChange={(event) => setGenre(event.target.value)} className="input cursor-pointer">
+                  <option value="ALL" className="bg-[#111821]">All genres</option>
+                  {genres.map((item) => (
+                    <option key={item} value={item} className="bg-[#111821]">
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
-          <Link href="/store" className="btn-secondary h-10 px-4 text-sm">
-            View all
-          </Link>
-        </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="glass-card min-h-[390px] animate-pulse overflow-hidden">
-                <div className="aspect-[16/10] bg-white/[0.08]" />
-                <div className="space-y-4 p-4">
-                  <div className="h-5 w-3/4 rounded bg-white/[0.08]" />
-                  <div className="h-4 w-1/2 rounded bg-white/[0.08]" />
-                  <div className="h-16 rounded bg-white/[0.08]" />
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-teal-200">Catalog</p>
+              <h2 className="mt-1 text-2xl font-black text-white sm:text-3xl">Featured keys</h2>
+            </div>
+            <Link href="/store" className="btn-secondary h-10 px-4 text-sm">
+              View all
+            </Link>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="glass-card min-h-[390px] animate-pulse overflow-hidden">
+                  <div className="aspect-[16/10] bg-white/[0.08]" />
+                  <div className="space-y-4 p-4">
+                    <div className="h-5 w-3/4 rounded bg-white/[0.08]" />
+                    <div className="h-4 w-1/2 rounded bg-white/[0.08]" />
+                    <div className="h-16 rounded bg-white/[0.08]" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : featuredGames.length === 0 ? (
-          <div className="surface py-16 text-center">
-            <p className="text-xl font-black text-white">No games found</p>
-            <p className="mt-2 text-gray-400">Try changing the filters or search term.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {featuredGames.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : featuredGames.length === 0 ? (
+            <div className="surface py-16 text-center">
+              <p className="text-xl font-black text-white">No games found</p>
+              <p className="mt-2 text-gray-400">Try changing the filters or search term.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {featuredGames.map((game) => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

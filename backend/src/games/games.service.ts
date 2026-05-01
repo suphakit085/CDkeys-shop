@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
-import { Platform, KeyStatus } from '@prisma/client';
+import { Platform, KeyStatus, Prisma } from '@prisma/client';
+
+interface PaginationOptions {
+    page?: number;
+    limit?: number;
+}
 
 @Injectable()
 export class GamesService {
@@ -13,8 +18,10 @@ export class GamesService {
         minPrice?: number;
         maxPrice?: number;
         search?: string;
+        page?: number;
+        limit?: number;
     }) {
-        const where: Record<string, unknown> = {};
+        const where: Prisma.GameWhereInput = {};
 
         if (filters?.platform) {
             where.platform = filters.platform;
@@ -27,10 +34,10 @@ export class GamesService {
         if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
             where.price = {};
             if (filters?.minPrice !== undefined) {
-                (where.price as Record<string, number>).gte = filters.minPrice;
+                where.price.gte = filters.minPrice;
             }
             if (filters?.maxPrice !== undefined) {
-                (where.price as Record<string, number>).lte = filters.maxPrice;
+                where.price.lte = filters.maxPrice;
             }
         }
 
@@ -41,25 +48,68 @@ export class GamesService {
             };
         }
 
-        const games = await this.prisma.game.findMany({
-            where,
-            include: {
-                _count: {
-                    select: {
-                        cdKeys: {
-                            where: { status: KeyStatus.AVAILABLE },
-                        },
+        const include = {
+            _count: {
+                select: {
+                    cdKeys: {
+                        where: { status: KeyStatus.AVAILABLE },
                     },
                 },
             },
-            orderBy: { createdAt: 'desc' },
-        });
+        } satisfies Prisma.GameInclude;
 
-        return games.map((game) => ({
+        const pagination = this.getPagination(filters);
+        const mapGame = (game: Prisma.GameGetPayload<{ include: typeof include }>) => ({
             ...game,
             availableKeys: game._count.cdKeys,
             _count: undefined,
-        }));
+        });
+
+        if (!pagination) {
+            const games = await this.prisma.game.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+            });
+
+            return games.map(mapGame);
+        }
+
+        const [games, total] = await this.prisma.$transaction([
+            this.prisma.game.findMany({
+                where,
+                include,
+                orderBy: { createdAt: 'desc' },
+                skip: (pagination.page - 1) * pagination.limit,
+                take: pagination.limit,
+            }),
+            this.prisma.game.count({ where }),
+        ]);
+
+        const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+
+        return {
+            data: games.map(mapGame),
+            meta: {
+                page: pagination.page,
+                limit: pagination.limit,
+                total,
+                totalPages,
+                hasNext: pagination.page < totalPages,
+                hasPrevious: pagination.page > 1,
+            },
+        };
+    }
+
+    private getPagination(options?: PaginationOptions) {
+        if (options?.page === undefined && options?.limit === undefined) {
+            return null;
+        }
+
+        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
+        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+
+        return { page, limit };
     }
 
     async findOne(id: string) {

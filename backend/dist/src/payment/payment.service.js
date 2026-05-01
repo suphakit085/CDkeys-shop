@@ -42,13 +42,6 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 id: orderId,
                 userId,
             },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
-                    },
-                },
-            },
         });
         if (!order) {
             throw new common_1.NotFoundException('Order not found');
@@ -71,60 +64,8 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 const slipAmount = verification.amount;
                 if (Math.abs(slipAmount - orderTotal) <= 1) {
                     this.logger.log(`Auto-verifying order ${orderId}: slip amount ${slipAmount} matches order total ${orderTotal}`);
-                    for (const item of order.orderItems) {
-                        if (item.cdKey) {
-                            await this.prisma.cdKey.update({
-                                where: { id: item.cdKey.id },
-                                data: { status: 'SOLD' },
-                            });
-                        }
-                    }
-                    await this.prisma.order.update({
-                        where: { id: orderId },
-                        data: {
-                            status: 'COMPLETED',
-                            paymentStatus: 'VERIFIED',
-                            paidAt: new Date(),
-                            promptpayRef: verification.transRef,
-                            verifiedBy: 'AUTO_SLIPOK',
-                            verifiedAt: new Date(),
-                        },
-                    });
-                    const completedOrder = await this.prisma.order.findUnique({
-                        where: { id: orderId },
-                        include: {
-                            user: true,
-                            orderItems: {
-                                include: {
-                                    game: true,
-                                    cdKey: true,
-                                },
-                            },
-                        },
-                    });
-                    if (completedOrder && completedOrder.user && this.emailService.isConfigured()) {
-                        const emailItems = completedOrder.orderItems
-                            .filter(item => item.cdKey)
-                            .map(item => ({
-                            gameTitle: item.game.title,
-                            platform: item.game.platform,
-                            cdKey: item.cdKey.keyCode,
-                        }));
-                        await this.emailService.sendCdKeysEmail({
-                            orderId: completedOrder.id,
-                            customerEmail: completedOrder.user.email,
-                            customerName: completedOrder.user.name,
-                            items: emailItems,
-                            total: Number(completedOrder.total),
-                        });
-                        await this.emailService.sendNewOrderNotification({
-                            orderId: completedOrder.id,
-                            customerEmail: completedOrder.user.email,
-                            customerName: completedOrder.user.name,
-                            items: emailItems,
-                            total: Number(completedOrder.total),
-                        });
-                    }
+                    await this.markPaymentVerified(orderId, 'AUTO_SLIPOK', verification.transRef);
+                    await this.sendCompletedOrderEmails(orderId);
                     return {
                         autoVerified: true,
                         message: 'ชำระเงินสำเร็จ! ระบบตรวจสอบยอดเงินถูกต้อง',
@@ -184,42 +125,51 @@ let PaymentService = PaymentService_1 = class PaymentService {
             });
         }
     }
-    async verifyPayment(orderId, adminId) {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
+    async markPaymentVerified(orderId, verifiedBy, promptpayRef) {
+        await this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    orderItems: {
+                        select: { id: true },
                     },
                 },
-            },
-        });
-        if (!order) {
-            throw new common_1.NotFoundException('Order not found');
-        }
-        if (order.paymentStatus === 'VERIFIED') {
-            throw new common_1.BadRequestException('Payment already verified');
-        }
-        for (const item of order.orderItems) {
-            if (item.cdKey) {
-                await this.prisma.cdKey.update({
-                    where: { id: item.cdKey.id },
-                    data: { status: 'SOLD' },
+            });
+            if (!order) {
+                throw new common_1.NotFoundException('Order not found');
+            }
+            if (order.paymentStatus === 'VERIFIED') {
+                throw new common_1.BadRequestException('Payment already verified');
+            }
+            const orderItemIds = order.orderItems.map((item) => item.id);
+            if (orderItemIds.length > 0) {
+                await tx.cdKey.updateMany({
+                    where: {
+                        orderItemId: { in: orderItemIds },
+                    },
+                    data: {
+                        status: 'SOLD',
+                    },
                 });
             }
-        }
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: {
-                status: 'COMPLETED',
-                paymentStatus: 'VERIFIED',
-                paidAt: new Date(),
-                verifiedBy: adminId,
-                verifiedAt: new Date(),
-            },
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'COMPLETED',
+                    paymentStatus: 'VERIFIED',
+                    paidAt: new Date(),
+                    promptpayRef,
+                    verifiedBy,
+                    verifiedAt: new Date(),
+                },
+            });
         });
-        const fullOrder = await this.prisma.order.findUnique({
+    }
+    async sendCompletedOrderEmails(orderId) {
+        if (!this.emailService.isConfigured()) {
+            return;
+        }
+        const completedOrder = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
                 user: true,
@@ -231,61 +181,80 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 },
             },
         });
-        if (fullOrder && fullOrder.user && this.emailService.isConfigured()) {
-            const emailItems = fullOrder.orderItems
-                .filter(item => item.cdKey)
-                .map(item => ({
-                gameTitle: item.game.title,
-                platform: item.game.platform,
-                cdKey: item.cdKey.keyCode,
-            }));
+        if (!completedOrder?.user) {
+            return;
+        }
+        const emailItems = completedOrder.orderItems
+            .filter(item => item.cdKey)
+            .map(item => ({
+            gameTitle: item.game.title,
+            platform: item.game.platform,
+            cdKey: item.cdKey.keyCode,
+        }));
+        try {
             await this.emailService.sendCdKeysEmail({
-                orderId: fullOrder.id,
-                customerEmail: fullOrder.user.email,
-                customerName: fullOrder.user.name,
+                orderId: completedOrder.id,
+                customerEmail: completedOrder.user.email,
+                customerName: completedOrder.user.name,
                 items: emailItems,
-                total: Number(fullOrder.total),
+                total: Number(completedOrder.total),
             });
             await this.emailService.sendNewOrderNotification({
-                orderId: fullOrder.id,
-                customerEmail: fullOrder.user.email,
-                customerName: fullOrder.user.name,
+                orderId: completedOrder.id,
+                customerEmail: completedOrder.user.email,
+                customerName: completedOrder.user.name,
                 items: emailItems,
-                total: Number(fullOrder.total),
+                total: Number(completedOrder.total),
             });
         }
+        catch (error) {
+            this.logger.error(`Failed to send completed order emails for ${orderId}`, error);
+        }
+    }
+    async verifyPayment(orderId, adminId) {
+        await this.markPaymentVerified(orderId, adminId);
+        await this.sendCompletedOrderEmails(orderId);
     }
     async rejectPayment(orderId, adminId, reason) {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                orderItems: {
-                    include: {
-                        cdKey: true,
+        await this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    orderItems: {
+                        select: { id: true },
                     },
                 },
-            },
-        });
-        if (!order) {
-            throw new common_1.NotFoundException('Order not found');
-        }
-        for (const item of order.orderItems) {
-            if (item.cdKey && item.cdKey.status === 'RESERVED') {
-                await this.prisma.cdKey.update({
-                    where: { id: item.cdKey.id },
-                    data: { status: 'AVAILABLE' },
+            });
+            if (!order) {
+                throw new common_1.NotFoundException('Order not found');
+            }
+            if (order.paymentStatus === 'VERIFIED') {
+                throw new common_1.BadRequestException('Cannot reject a verified payment');
+            }
+            const orderItemIds = order.orderItems.map((item) => item.id);
+            if (orderItemIds.length > 0) {
+                await tx.cdKey.updateMany({
+                    where: {
+                        orderItemId: { in: orderItemIds },
+                        status: 'RESERVED',
+                    },
+                    data: {
+                        status: 'AVAILABLE',
+                        reservedAt: null,
+                        orderItemId: null,
+                    },
                 });
             }
-        }
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: {
-                status: 'FAILED',
-                paymentStatus: 'REJECTED',
-                verifiedBy: adminId,
-                verifiedAt: new Date(),
-                promptpayRef: reason,
-            },
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'FAILED',
+                    paymentStatus: 'REJECTED',
+                    verifiedBy: adminId,
+                    verifiedAt: new Date(),
+                    promptpayRef: reason,
+                },
+            });
         });
     }
     async getPendingPayments() {

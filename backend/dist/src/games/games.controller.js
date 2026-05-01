@@ -25,14 +25,23 @@ let GamesController = class GamesController {
     constructor(gamesService) {
         this.gamesService = gamesService;
     }
-    async findAll(platform, genre, minPrice, maxPrice, search) {
+    async findAll(platform, genre, minPrice, maxPrice, search, page, limit) {
         return this.gamesService.findAll({
             platform,
             genre,
             minPrice: minPrice ? parseFloat(minPrice) : undefined,
             maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
             search,
+            page: this.parsePositiveInt(page),
+            limit: this.parsePositiveInt(limit),
         });
+    }
+    parsePositiveInt(value) {
+        if (!value) {
+            return undefined;
+        }
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
     }
     async getGenres() {
         return this.gamesService.getGenres();
@@ -58,8 +67,10 @@ __decorate([
     __param(2, (0, common_1.Query)('minPrice')),
     __param(3, (0, common_1.Query)('maxPrice')),
     __param(4, (0, common_1.Query)('search')),
+    __param(5, (0, common_1.Query)('page')),
+    __param(6, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], GamesController.prototype, "findAll", null);
 __decorate([
