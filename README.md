@@ -75,7 +75,7 @@ Use this when moving the backend from Render to Railway.
 8. Update Vercel frontend env to point at the new Railway backend URL.
 9. Update Stripe webhook URL to the new Railway backend URL.
 
-Railway will use [backend/railway.json](backend/railway.json) to build the Dockerfile, run Prisma migrations before deploy, start the NestJS server, and check `/api/health`.
+Railway will use [backend/railway.json](backend/railway.json) to build the Dockerfile, sync the Prisma schema before deploy, start the NestJS server, and check `/api/health`.
 
 Required Railway backend variables:
 

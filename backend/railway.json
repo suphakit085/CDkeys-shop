@@ -6,7 +6,7 @@
     "watchPatterns": ["/backend/**"]
   },
   "deploy": {
-    "preDeployCommand": "npm run db:deploy",
+    "preDeployCommand": "npm run db:railway",
     "startCommand": "npm run start:prod",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
