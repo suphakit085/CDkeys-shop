@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -59,7 +60,7 @@ export default function AdminBannersPage() {
             });
             const data = await response.json();
             setBanners(data);
-        } catch (err) {
+        } catch {
             setError('ไม่สามารถโหลดข้อมูลแบนเนอร์ได้');
         } finally {
             setIsLoading(false);
@@ -132,7 +133,7 @@ export default function AdminBannersPage() {
                 const data = await response.json();
                 setError(data.message || 'เกิดข้อผิดพลาด');
             }
-        } catch (err) {
+        } catch {
             setError('ไม่สามารถบันทึกข้อมูลได้');
         }
     };
@@ -153,7 +154,7 @@ export default function AdminBannersPage() {
             } else {
                 setError('ไม่สามารถลบแบนเนอร์ได้');
             }
-        } catch (err) {
+        } catch {
             setError('เกิดข้อผิดพลาด');
         }
     };
@@ -180,7 +181,7 @@ export default function AdminBannersPage() {
             } else {
                 setError('อัพโหลดรูปภาพไม่สำเร็จ');
             }
-        } catch (err) {
+        } catch {
             setError('เกิดข้อผิดพลาดในการอัพโหลด');
         } finally {
             setUploading(false);

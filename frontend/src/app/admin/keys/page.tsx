@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { gamesApi, keysApi, Game, CdKey } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,23 +16,7 @@ export default function AdminKeys() {
     const [addResult, setAddResult] = useState<{ added: number; duplicates: number } | null>(null);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        if (!authLoading) {
-            if (!user || !isAdmin) {
-                router.push('/');
-                return;
-            }
-            loadGames();
-        }
-    }, [user, isAdmin, authLoading, router]);
-
-    useEffect(() => {
-        if (selectedGame && token) {
-            loadKeys();
-        }
-    }, [selectedGame, token]);
-
-    const loadGames = async () => {
+    const loadGames = useCallback(async () => {
         try {
             const data = await gamesApi.getAll();
             setGames(data);
@@ -44,9 +28,9 @@ export default function AdminKeys() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const loadKeys = async () => {
+    const loadKeys = useCallback(async () => {
         if (!token || !selectedGame) return;
         try {
             const data = await keysApi.getByGame(selectedGame, token);
@@ -54,7 +38,23 @@ export default function AdminKeys() {
         } catch (err) {
             console.error('Failed to load keys:', err);
         }
-    };
+    }, [selectedGame, token]);
+
+    useEffect(() => {
+        if (!authLoading) {
+            if (!user || !isAdmin) {
+                router.push('/');
+                return;
+            }
+            loadGames();
+        }
+    }, [user, isAdmin, authLoading, router, loadGames]);
+
+    useEffect(() => {
+        if (selectedGame && token) {
+            loadKeys();
+        }
+    }, [selectedGame, token, loadKeys]);
 
     const handleBulkAdd = async () => {
         if (!token || !selectedGame || !bulkKeys.trim()) return;

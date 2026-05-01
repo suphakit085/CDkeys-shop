@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,18 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL, BACKEND_URL } from '@/lib/config';
 
-interface SiteSettings {
-    id: string;
-    storeName: string;
-    logoUrl: string | null;
-    faviconUrl: string | null;
-    tagline: string | null;
-    primaryColor: string | null;
-}
-
 export default function AdminSettingsPage() {
     const { user } = useAuth();
-    const [settings, setSettings] = useState<SiteSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -37,12 +28,11 @@ export default function AdminSettingsPage() {
         try {
             const response = await fetch(`${API_URL}/settings`);
             const data = await response.json();
-            setSettings(data);
             setStoreName(data.storeName || '');
             setLogoUrl(data.logoUrl || '');
             setTagline(data.tagline || '');
             setPrimaryColor(data.primaryColor || '#8b5cf6');
-        } catch (err) {
+        } catch {
             setError('ไม่สามารถโหลดการตั้งค่าได้');
         } finally {
             setIsLoading(false);
@@ -78,7 +68,7 @@ export default function AdminSettingsPage() {
                 const data = await response.json();
                 setError(data.message || 'เกิดข้อผิดพลาด');
             }
-        } catch (err) {
+        } catch {
             setError('ไม่สามารถบันทึกข้อมูลได้');
         } finally {
             setIsSaving(false);
@@ -107,7 +97,7 @@ export default function AdminSettingsPage() {
             } else {
                 setError('อัพโหลดโลโก้ไม่สำเร็จ');
             }
-        } catch (err) {
+        } catch {
             setError('เกิดข้อผิดพลาดในการอัพโหลด');
         } finally {
             setUploading(false);

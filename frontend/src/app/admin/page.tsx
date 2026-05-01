@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi, keysApi, SalesStats, KeyStats } from '@/lib/api';
@@ -12,6 +12,25 @@ export default function AdminDashboard() {
     const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
     const [keyStats, setKeyStats] = useState<KeyStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const loadStats = useCallback(async () => {
+        if (!token) {
+            setIsLoading(false);
+            return;
+        }
+        try {
+            const [sales, keys] = await Promise.all([
+                ordersApi.getSalesStats(token),
+                keysApi.getStats(token),
+            ]);
+            setSalesStats(sales);
+            setKeyStats(keys);
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [token]);
 
     useEffect(() => {
         if (!authLoading) {
@@ -25,23 +44,7 @@ export default function AdminDashboard() {
             }
             loadStats();
         }
-    }, [user, isAdmin, authLoading, router]);
-
-    const loadStats = async () => {
-        if (!token) return;
-        try {
-            const [sales, keys] = await Promise.all([
-                ordersApi.getSalesStats(token),
-                keysApi.getStats(token),
-            ]);
-            setSalesStats(sales);
-            setKeyStats(keys);
-        } catch (error) {
-            console.error('Failed to load stats:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [user, isAdmin, authLoading, router, loadStats]);
 
     if (authLoading || isLoading) {
         return (

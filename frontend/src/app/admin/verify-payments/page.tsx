@@ -1,6 +1,7 @@
+/* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { paymentApi, PendingPayment } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,13 +15,7 @@ export default function VerifyPaymentsPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    useEffect(() => {
-        if (!authLoading && token && isAdmin) {
-            loadPayments();
-        }
-    }, [token, authLoading, isAdmin]);
-
-    const loadPayments = async () => {
+    const loadPayments = useCallback(async () => {
         if (!token) return;
         try {
             const data = await paymentApi.getPending(token);
@@ -31,7 +26,13 @@ export default function VerifyPaymentsPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        if (!authLoading && token && isAdmin) {
+            loadPayments();
+        }
+    }, [token, authLoading, isAdmin, loadPayments]);
 
     const handleVerify = async (orderId: string) => {
         if (!token) return;
@@ -42,7 +43,7 @@ export default function VerifyPaymentsPage() {
         try {
             await paymentApi.verify(orderId, token);
             setSuccess(`อนุมัติคำสั่งซื้อ ${orderId.slice(0, 8)}... สำเร็จ`);
-            loadPayments(); // Refresh list
+            await loadPayments(); // Refresh list
         } catch (err) {
             setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
         } finally {
@@ -62,7 +63,7 @@ export default function VerifyPaymentsPage() {
         try {
             await paymentApi.reject(orderId, reason, token);
             setSuccess(`ปฏิเสธคำสั่งซื้อ ${orderId.slice(0, 8)}... สำเร็จ`);
-            loadPayments();
+            await loadPayments();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
         } finally {

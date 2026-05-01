@@ -1,12 +1,14 @@
+/* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { gamesApi, Game, Platform, CreateGameDto } from '@/lib/api';
+import { gamesApi, Game, Platform, CreateGameDto, PaginationMeta } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL, getUploadUrl } from '@/lib/config';
 
 const platforms: Platform[] = ['STEAM', 'PLAYSTATION', 'XBOX', 'NINTENDO', 'ORIGIN', 'UPLAY', 'EPIC'];
+const pageSize = 12;
 const textToList = (value: string) => value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
 const listToText = (value?: string[]) => (value || []).join('\n');
 
@@ -14,6 +16,9 @@ export default function AdminGames() {
     const { user, token, isAdmin, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [games, setGames] = useState<Game[]>([]);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState<PaginationMeta | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingGame, setEditingGame] = useState<Game | null>(null);
@@ -38,6 +43,23 @@ export default function AdminGames() {
         screenshots: [],
     });
 
+    const loadGames = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const result = await gamesApi.getPage({
+                search: search.trim() || undefined,
+                page,
+                limit: pageSize,
+            });
+            setGames(result.data);
+            setPagination(result.meta);
+        } catch (error) {
+            console.error('Failed to load games:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [page, search]);
+
     useEffect(() => {
         if (!authLoading) {
             if (!user || !isAdmin) {
@@ -46,18 +68,7 @@ export default function AdminGames() {
             }
             loadGames();
         }
-    }, [user, isAdmin, authLoading, router]);
-
-    const loadGames = async () => {
-        try {
-            const data = await gamesApi.getAll();
-            setGames(data);
-        } catch (error) {
-            console.error('Failed to load games:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [user, isAdmin, authLoading, router, loadGames]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,7 +84,11 @@ export default function AdminGames() {
             } else {
                 await gamesApi.create(payload, token);
             }
-            await loadGames();
+            if (page !== 1) {
+                setPage(1);
+            } else {
+                await loadGames();
+            }
             resetForm();
         } catch (error) {
             console.error('Failed to save game:', error);
@@ -84,7 +99,11 @@ export default function AdminGames() {
         if (!token || !confirm('Delete this game?')) return;
         try {
             await gamesApi.delete(id, token);
-            await loadGames();
+            if (games.length === 1 && page > 1) {
+                setPage(page - 1);
+            } else {
+                await loadGames();
+            }
         } catch (error) {
             console.error('Failed to delete game:', error);
         }
@@ -387,8 +406,27 @@ export default function AdminGames() {
                 </form>
             )}
 
+            <div className="glass-card p-4 mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p className="text-sm text-gray-400">Catalog</p>
+                    <p className="text-white font-semibold">
+                        {pagination ? `${pagination.total} games` : `${games.length} games`}
+                    </p>
+                </div>
+                <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                    }}
+                    className="input md:max-w-sm"
+                    placeholder="Search games"
+                />
+            </div>
+
             <div className="space-y-4">
-                {games.map((game) => (
+                {games.length > 0 ? games.map((game) => (
                     <div key={game.id} className="glass-card p-4 flex items-center gap-4">
                         <img
                             src={game.imageUrl || '/placeholder-game.jpg'}
@@ -412,8 +450,34 @@ export default function AdminGames() {
                             </button>
                         </div>
                     </div>
-                ))}
+                )) : (
+                    <div className="glass-card p-10 text-center text-gray-400">
+                        No games found
+                    </div>
+                )}
             </div>
+
+            {pagination && pagination.totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between">
+                    <button
+                        onClick={() => setPage((current) => Math.max(1, current - 1))}
+                        disabled={!pagination.hasPrevious}
+                        className="btn-secondary py-2 px-4 disabled:opacity-40"
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm text-gray-400">
+                        Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                    <button
+                        onClick={() => setPage((current) => current + 1)}
+                        disabled={!pagination.hasNext}
+                        className="btn-secondary py-2 px-4 disabled:opacity-40"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
