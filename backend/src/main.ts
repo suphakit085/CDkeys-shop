@@ -4,6 +4,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -46,6 +50,16 @@ async function bootstrap() {
 
   // API prefix
   app.setGlobalPrefix('api');
+
+  app
+    .getHttpAdapter()
+    .get('/health', (_req: ExpressRequest, res: ExpressResponse) => {
+      res.status(200).json({
+        status: 'ok',
+        service: 'cdkeys-backend',
+        timestamp: new Date().toISOString(),
+      });
+    });
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
