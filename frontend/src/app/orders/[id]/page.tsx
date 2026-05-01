@@ -1,9 +1,10 @@
+/* eslint-disable @next/next/no-img-element -- Order thumbnails use local uploads and admin-provided URLs. */
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ordersApi, Order } from '@/lib/api';
+import { ordersApi, paymentApi, Order } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +13,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     const router = useRouter();
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRestartingStripe, setIsRestartingStripe] = useState(false);
+    const [stripeError, setStripeError] = useState('');
     const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
+
+    const loadOrder = useCallback(async () => {
+        if (!token) return;
+        try {
+            const data = await ordersApi.getOne(id, token);
+            setOrder(data);
+        } catch (error) {
+            console.error('Failed to load order:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [id, token]);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -23,19 +38,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         if (token && id) {
             loadOrder();
         }
-    }, [user, token, authLoading, id, router]);
-
-    const loadOrder = async () => {
-        if (!token) return;
-        try {
-            const data = await ordersApi.getOne(id, token);
-            setOrder(data);
-        } catch (error) {
-            console.error('Failed to load order:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [user, token, authLoading, id, router, loadOrder]);
 
     const toggleKeyReveal = (itemId: string) => {
         setRevealedKeys((prev) => {
@@ -51,6 +54,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
     const copyKey = (key: string) => {
         navigator.clipboard.writeText(key);
+    };
+
+    const restartStripeCheckout = async () => {
+        if (!order || !token) return;
+
+        setIsRestartingStripe(true);
+        setStripeError('');
+
+        try {
+            const checkout = await paymentApi.createStripeCheckout(order.id, token);
+            window.location.href = checkout.url;
+        } catch (err) {
+            setStripeError(err instanceof Error ? err.message : 'Unable to restart Stripe checkout');
+            setIsRestartingStripe(false);
+        }
     };
 
     const getStatusBadge = (status: string) => {
@@ -110,7 +128,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                     <div>
                         <p className="text-gray-400 text-sm">Payment</p>
-                        <p className="text-white">Mock Payment</p>
+                        <p className="text-white">
+                            {order.paymentMethod === 'CREDIT_CARD' ? 'Stripe' : 'PromptPay'}
+                        </p>
                     </div>
                     <div>
                         <p className="text-gray-400 text-sm">Total</p>
@@ -119,6 +139,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         </p>
                     </div>
                 </div>
+
+                {order.status === 'PENDING' && order.paymentMethod === 'CREDIT_CARD' && (
+                    <div className="mt-5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-bold text-yellow-300">Stripe payment pending</p>
+                                <p className="mt-1 text-sm text-yellow-100/80">
+                                    Continue checkout to complete payment and unlock your keys.
+                                </p>
+                                {stripeError && (
+                                    <p className="mt-2 text-sm font-bold text-red-300">{stripeError}</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={restartStripeCheckout}
+                                disabled={isRestartingStripe}
+                                className="btn-primary px-5 disabled:opacity-50"
+                            >
+                                {isRestartingStripe ? 'Opening Stripe...' : 'Continue Stripe checkout'}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <h2 className="text-xl font-bold text-white mb-4">Your Game Keys</h2>

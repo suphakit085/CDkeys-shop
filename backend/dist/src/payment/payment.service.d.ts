@@ -21,6 +21,25 @@ export declare class PaymentService {
     private markPaymentVerified;
     private sendCompletedOrderEmails;
     verifyPayment(orderId: string, adminId: string): Promise<void>;
+    createStripeCheckoutSession(orderId: string, userId: string): Promise<{
+        url: string;
+        sessionId: string;
+    }>;
+    handleStripeWebhook(rawBody: string, signature: string | undefined): Promise<{
+        received: true;
+    }>;
+    private fulfillStripeCheckout;
+    private expireStripeCheckout;
+    private getStripeSecretKey;
+    private getStripeWebhookSecret;
+    private getStripeCurrency;
+    private getFrontendUrl;
+    private toStripeAmount;
+    private stripePost;
+    private parseStripeEvent;
+    private extractStripeHeaderValue;
+    private extractStripeHeaderValues;
+    private safeCompareHex;
     rejectPayment(orderId: string, adminId: string, reason?: string): Promise<void>;
     getPendingPayments(): Promise<({
         user: {
@@ -54,6 +73,9 @@ export declare class PaymentService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessPaymentDto = exports.CreateOrderDto = exports.CartItemDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const client_1 = require("@prisma/client");
 class CartItemDto {
     gameId;
     quantity;
@@ -29,6 +30,7 @@ __decorate([
 ], CartItemDto.prototype, "quantity", void 0);
 class CreateOrderDto {
     items;
+    paymentMethod;
 }
 exports.CreateOrderDto = CreateOrderDto;
 __decorate([
@@ -38,6 +40,11 @@ __decorate([
     (0, class_transformer_1.Type)(() => CartItemDto),
     __metadata("design:type", Array)
 ], CreateOrderDto.prototype, "items", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)(client_1.PaymentMethod),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateOrderDto.prototype, "paymentMethod", void 0);
 class ProcessPaymentDto {
     orderId;
     simulateFail;

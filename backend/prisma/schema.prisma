@@ -124,6 +124,9 @@ model Order {
   paymentSlipUrl   String?
   qrCodeData       String?       @db.Text
   promptpayRef     String?
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String?
+  stripePaymentStatus     String?
   paidAt           DateTime?
   verifiedBy       String?
   verifiedAt       DateTime?
@@ -133,6 +136,7 @@ model Order {
 
   @@index([userId])
   @@index([paymentStatus])
+  @@index([stripePaymentIntentId])
 }
 
 model OrderItem {

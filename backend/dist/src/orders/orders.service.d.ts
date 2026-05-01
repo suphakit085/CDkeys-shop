@@ -45,6 +45,9 @@ export declare class OrdersService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
@@ -79,6 +82,9 @@ export declare class OrdersService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
@@ -108,6 +114,9 @@ export declare class OrdersService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
@@ -148,6 +157,9 @@ export declare class OrdersService {
             paymentSlipUrl: string | null;
             qrCodeData: string | null;
             promptpayRef: string | null;
+            stripeCheckoutSessionId: string | null;
+            stripePaymentIntentId: string | null;
+            stripePaymentStatus: string | null;
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
@@ -165,6 +177,9 @@ export declare class OrdersService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
@@ -203,6 +218,9 @@ export declare class OrdersService {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
@@ -241,6 +259,9 @@ export declare class OrdersService {
             paymentSlipUrl: string | null;
             qrCodeData: string | null;
             promptpayRef: string | null;
+            stripeCheckoutSessionId: string | null;
+            stripePaymentIntentId: string | null;
+            stripePaymentStatus: string | null;
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
@@ -286,6 +307,9 @@ export declare class OrdersService {
             paymentSlipUrl: string | null;
             qrCodeData: string | null;
             promptpayRef: string | null;
+            stripeCheckoutSessionId: string | null;
+            stripePaymentIntentId: string | null;
+            stripePaymentStatus: string | null;
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;

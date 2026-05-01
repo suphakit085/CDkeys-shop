@@ -6,7 +6,9 @@ import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   const uploadRoot = join(process.cwd(), 'uploads');
   for (const folder of ['slips', 'banners', 'settings']) {
     mkdirSync(join(uploadRoot, folder), { recursive: true });
@@ -22,7 +24,7 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
     credentials: true,
   });
 
@@ -49,4 +51,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Backend running on http://localhost:${port}/api`);
 }
-bootstrap();
+void bootstrap();

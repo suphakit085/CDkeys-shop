@@ -82,12 +82,16 @@ let OrdersService = class OrdersService {
                 }
             }
             const total = reservedKeys.reduce((sum, item) => sum + item.price, 0);
-            const qrCodeData = await this.paymentService.generatePromptPayQR(total);
+            const paymentMethod = dto.paymentMethod || client_1.PaymentMethod.PROMPTPAY;
+            const qrCodeData = paymentMethod === client_1.PaymentMethod.PROMPTPAY
+                ? await this.paymentService.generatePromptPayQR(total)
+                : null;
             const order = await this.prisma.order.create({
                 data: {
                     userId,
                     total,
                     status: client_1.OrderStatus.PENDING,
+                    paymentMethod,
                     qrCodeData,
                     orderItems: {
                         create: reservedKeys.map((item) => ({

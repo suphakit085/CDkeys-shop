@@ -1,4 +1,8 @@
 import { PaymentService } from './payment.service';
+import { Request as ExpressRequest } from 'express';
+type RawBodyRequest = ExpressRequest & {
+    rawBody?: Buffer;
+};
 export declare class PaymentController {
     private paymentService;
     constructor(paymentService: PaymentService);
@@ -7,10 +11,24 @@ export declare class PaymentController {
             id: string;
         };
     }): Promise<{
-        message: any;
+        message: string;
         slipUrl: string;
-        autoVerified: any;
-        slipData: any;
+        autoVerified: boolean;
+        slipData: {
+            amount?: number;
+            transRef?: string;
+        } | undefined;
+    }>;
+    createStripeCheckout(orderId: string, req: {
+        user: {
+            id: string;
+        };
+    }): Promise<{
+        url: string;
+        sessionId: string;
+    }>;
+    handleStripeWebhook(req: RawBodyRequest, signature?: string): Promise<{
+        received: true;
     }>;
     verifyPayment(orderId: string, req: {
         user: {
@@ -58,8 +76,12 @@ export declare class PaymentController {
         paymentSlipUrl: string | null;
         qrCodeData: string | null;
         promptpayRef: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripePaymentIntentId: string | null;
+        stripePaymentStatus: string | null;
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
     })[]>;
 }
+export {};

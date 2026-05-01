@@ -3,12 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import generatePayload from 'promptpay-qr';
 import { toDataURL } from 'qrcode';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SlipOkService } from './slipok.service';
 import { EmailService } from '../email/email.service';
+import { PaymentMethod } from '@prisma/client';
 
 export interface SlipUploadResult {
   autoVerified: boolean;
@@ -16,6 +19,36 @@ export interface SlipUploadResult {
   slipData?: {
     amount?: number;
     transRef?: string;
+  };
+}
+
+interface StripeCheckoutSessionResponse {
+  id: string;
+  url: string | null;
+  payment_intent?: string | null;
+  payment_status?: string | null;
+}
+
+interface StripeCheckoutSessionEvent {
+  id: string;
+  client_reference_id?: string | null;
+  metadata?: {
+    orderId?: string;
+    userId?: string;
+  };
+  amount_total?: number | null;
+  currency?: string | null;
+  payment_intent?: string | null;
+  payment_status?: string | null;
+}
+
+interface StripeEvent {
+  id: string;
+  type: string;
+  data: {
+    object: StripeCheckoutSessionEvent & {
+      metadata?: Record<string, string | undefined>;
+    };
   };
 }
 
@@ -90,12 +123,14 @@ export class PaymentService {
             `Auto-verifying order ${orderId}: slip amount ${slipAmount} matches order total ${orderTotal}`,
           );
 
-          await this.markPaymentVerified(
+          const marked = await this.markPaymentVerified(
             orderId,
             'AUTO_SLIPOK',
-            verification.transRef,
+            { promptpayRef: verification.transRef },
           );
-          await this.sendCompletedOrderEmails(orderId);
+          if (marked) {
+            await this.sendCompletedOrderEmails(orderId);
+          }
 
           return {
             autoVerified: true,
@@ -169,9 +204,15 @@ export class PaymentService {
   private async markPaymentVerified(
     orderId: string,
     verifiedBy: string,
-    promptpayRef?: string,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    options: {
+      promptpayRef?: string;
+      stripeCheckoutSessionId?: string;
+      stripePaymentIntentId?: string;
+      stripePaymentStatus?: string;
+      allowAlreadyVerified?: boolean;
+    } = {},
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
         include: {
@@ -186,6 +227,9 @@ export class PaymentService {
       }
 
       if (order.paymentStatus === 'VERIFIED') {
+        if (options.allowAlreadyVerified) {
+          return false;
+        }
         throw new BadRequestException('Payment already verified');
       }
 
@@ -208,11 +252,16 @@ export class PaymentService {
           status: 'COMPLETED',
           paymentStatus: 'VERIFIED',
           paidAt: new Date(),
-          promptpayRef,
+          promptpayRef: options.promptpayRef,
+          stripeCheckoutSessionId: options.stripeCheckoutSessionId,
+          stripePaymentIntentId: options.stripePaymentIntentId,
+          stripePaymentStatus: options.stripePaymentStatus,
           verifiedBy,
           verifiedAt: new Date(),
         },
       });
+
+      return true;
     });
   }
 
@@ -271,8 +320,333 @@ export class PaymentService {
   }
 
   async verifyPayment(orderId: string, adminId: string): Promise<void> {
-    await this.markPaymentVerified(orderId, adminId);
-    await this.sendCompletedOrderEmails(orderId);
+    const marked = await this.markPaymentVerified(orderId, adminId);
+    if (marked) {
+      await this.sendCompletedOrderEmails(orderId);
+    }
+  }
+
+  async createStripeCheckoutSession(
+    orderId: string,
+    userId: string,
+  ): Promise<{ url: string; sessionId: string }> {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+        status: 'PENDING',
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+        orderItems: {
+          include: {
+            game: {
+              select: {
+                title: true,
+                platform: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pending order not found');
+    }
+
+    if (order.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+      throw new BadRequestException('This order is not configured for Stripe');
+    }
+
+    if (order.paymentStatus === 'VERIFIED') {
+      throw new BadRequestException('Payment already verified');
+    }
+
+    const frontendUrl = this.getFrontendUrl();
+    const currency = this.getStripeCurrency();
+    const body = new URLSearchParams({
+      mode: 'payment',
+      success_url: `${frontendUrl}/checkout/stripe/success?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
+      cancel_url: `${frontendUrl}/checkout/stripe/cancel?order_id=${order.id}`,
+      client_reference_id: order.id,
+      customer_email: order.user.email,
+      'metadata[orderId]': order.id,
+      'metadata[userId]': userId,
+      'payment_intent_data[metadata][orderId]': order.id,
+      'payment_intent_data[metadata][userId]': userId,
+    });
+
+    order.orderItems.forEach((item, index) => {
+      body.set(`line_items[${index}][quantity]`, '1');
+      body.set(`line_items[${index}][price_data][currency]`, currency);
+      body.set(
+        `line_items[${index}][price_data][unit_amount]`,
+        this.toStripeAmount(Number(item.price)).toString(),
+      );
+      body.set(
+        `line_items[${index}][price_data][product_data][name]`,
+        item.game.title,
+      );
+      body.set(
+        `line_items[${index}][price_data][product_data][metadata][platform]`,
+        item.game.platform,
+      );
+    });
+
+    const session = await this.stripePost<StripeCheckoutSessionResponse>(
+      '/checkout/sessions',
+      body,
+    );
+
+    if (!session.url) {
+      throw new InternalServerErrorException(
+        'Stripe did not return a checkout URL',
+      );
+    }
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent || undefined,
+        stripePaymentStatus: session.payment_status || 'unpaid',
+      },
+    });
+
+    return {
+      url: session.url,
+      sessionId: session.id,
+    };
+  }
+
+  async handleStripeWebhook(
+    rawBody: string,
+    signature: string | undefined,
+  ): Promise<{ received: true }> {
+    const event = this.parseStripeEvent(rawBody, signature);
+
+    switch (event.type) {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded':
+        await this.fulfillStripeCheckout(event.data.object);
+        break;
+      case 'checkout.session.expired':
+        await this.expireStripeCheckout(event.data.object);
+        break;
+      default:
+        this.logger.debug(`Unhandled Stripe event type: ${event.type}`);
+    }
+
+    return { received: true };
+  }
+
+  private async fulfillStripeCheckout(
+    session: StripeCheckoutSessionEvent,
+  ): Promise<void> {
+    const orderId = session.metadata?.orderId || session.client_reference_id;
+
+    if (!orderId) {
+      throw new BadRequestException('Stripe session missing order reference');
+    }
+
+    if (session.payment_status && session.payment_status !== 'paid') {
+      this.logger.warn(
+        `Stripe checkout ${session.id} completed with payment_status=${session.payment_status}`,
+      );
+      return;
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        OR: [{ id: orderId }, { stripeCheckoutSessionId: session.id }],
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found for Stripe checkout');
+    }
+
+    if (order.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+      throw new BadRequestException('Order is not a Stripe order');
+    }
+
+    if (session.amount_total !== null && session.amount_total !== undefined) {
+      const expectedAmount = this.toStripeAmount(Number(order.total));
+      if (session.amount_total !== expectedAmount) {
+        throw new BadRequestException(
+          'Stripe amount does not match order total',
+        );
+      }
+    }
+
+    const marked = await this.markPaymentVerified(order.id, 'STRIPE', {
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent || undefined,
+      stripePaymentStatus: session.payment_status || 'paid',
+      allowAlreadyVerified: true,
+    });
+    if (marked) {
+      await this.sendCompletedOrderEmails(order.id);
+    }
+  }
+
+  private async expireStripeCheckout(
+    session: StripeCheckoutSessionEvent,
+  ): Promise<void> {
+    const orderId = session.metadata?.orderId || session.client_reference_id;
+
+    if (!orderId) {
+      return;
+    }
+
+    await this.prisma.order.updateMany({
+      where: {
+        id: orderId,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        paymentStatus: 'PENDING',
+        status: 'PENDING',
+      },
+      data: {
+        stripePaymentStatus: 'expired',
+      },
+    });
+  }
+
+  private getStripeSecretKey(): string {
+    const key = process.env.STRIPE_SECRET_KEY;
+
+    if (!key) {
+      throw new InternalServerErrorException(
+        'STRIPE_SECRET_KEY is not configured',
+      );
+    }
+
+    return key;
+  }
+
+  private getStripeWebhookSecret(): string {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!secret) {
+      throw new InternalServerErrorException(
+        'STRIPE_WEBHOOK_SECRET is not configured',
+      );
+    }
+
+    return secret;
+  }
+
+  private getStripeCurrency(): string {
+    return (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+  }
+
+  private getFrontendUrl(): string {
+    return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(
+      /\/$/,
+      '',
+    );
+  }
+
+  private toStripeAmount(amount: number): number {
+    return Math.round(amount * 100);
+  }
+
+  private async stripePost<T>(path: string, body: URLSearchParams): Promise<T> {
+    const response = await fetch(`https://api.stripe.com/v1${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.getStripeSecretKey()}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+    const data = (await response.json()) as {
+      error?: {
+        message?: string;
+      };
+    } & T;
+
+    if (!response.ok) {
+      const message =
+        typeof data?.error?.message === 'string'
+          ? data.error.message
+          : 'Stripe request failed';
+      throw new BadRequestException(message);
+    }
+
+    return data as T;
+  }
+
+  private parseStripeEvent(
+    rawBody: string,
+    signature: string | undefined,
+  ): StripeEvent {
+    if (!signature) {
+      throw new BadRequestException('Missing Stripe signature');
+    }
+
+    const timestamp = this.extractStripeHeaderValue(signature, 't');
+    const signatures = this.extractStripeHeaderValues(signature, 'v1');
+
+    if (!timestamp || signatures.length === 0) {
+      throw new BadRequestException('Invalid Stripe signature header');
+    }
+
+    const toleranceSeconds = 5 * 60;
+    const ageSeconds = Math.abs(Date.now() / 1000 - Number(timestamp));
+    if (!Number.isFinite(ageSeconds) || ageSeconds > toleranceSeconds) {
+      throw new BadRequestException('Expired Stripe signature');
+    }
+
+    const signedPayload = `${timestamp}.${rawBody}`;
+    const expectedSignature = createHmac(
+      'sha256',
+      this.getStripeWebhookSecret(),
+    )
+      .update(signedPayload, 'utf8')
+      .digest('hex');
+
+    const isValid = signatures.some((value) =>
+      this.safeCompareHex(value, expectedSignature),
+    );
+
+    if (!isValid) {
+      throw new BadRequestException('Invalid Stripe signature');
+    }
+
+    return JSON.parse(rawBody) as StripeEvent;
+  }
+
+  private extractStripeHeaderValue(header: string, key: string) {
+    return this.extractStripeHeaderValues(header, key)[0];
+  }
+
+  private extractStripeHeaderValues(header: string, key: string) {
+    return header
+      .split(',')
+      .map((part) => part.split('='))
+      .filter(([name]) => name === key)
+      .map(([, value]) => value)
+      .filter(Boolean);
+  }
+
+  private safeCompareHex(value: string, expected: string) {
+    try {
+      const valueBuffer = Buffer.from(value, 'hex');
+      const expectedBuffer = Buffer.from(expected, 'hex');
+
+      return (
+        valueBuffer.length === expectedBuffer.length &&
+        timingSafeEqual(valueBuffer, expectedBuffer)
+      );
+    } catch {
+      return false;
+    }
   }
 
   async rejectPayment(

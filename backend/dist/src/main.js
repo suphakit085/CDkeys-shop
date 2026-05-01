@@ -6,7 +6,9 @@ const path_1 = require("path");
 const fs_1 = require("fs");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        rawBody: true,
+    });
     const uploadRoot = (0, path_1.join)(process.cwd(), 'uploads');
     for (const folder of ['slips', 'banners', 'settings']) {
         (0, fs_1.mkdirSync)((0, path_1.join)(uploadRoot, folder), { recursive: true });
@@ -19,7 +21,7 @@ async function bootstrap() {
     app.enableCors({
         origin: allowedOrigins,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
         credentials: true,
     });
     app.useStaticAssets(uploadRoot, {
@@ -37,5 +39,5 @@ async function bootstrap() {
     await app.listen(port);
     console.log(`🚀 Backend running on http://localhost:${port}/api`);
 }
-bootstrap();
+void bootstrap();
 //# sourceMappingURL=main.js.map

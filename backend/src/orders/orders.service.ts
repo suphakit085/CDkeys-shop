@@ -6,7 +6,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { KeysService } from '../keys/keys.service';
 import { PaymentService } from '../payment/payment.service';
-import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import { CreateOrderDto } from './dto/orders.dto';
 
 interface AdminOrderFilters {
@@ -102,8 +107,11 @@ export class OrdersService {
       // Calculate total
       const total = reservedKeys.reduce((sum, item) => sum + item.price, 0);
 
-      // Generate PromptPay QR code
-      const qrCodeData = await this.paymentService.generatePromptPayQR(total);
+      const paymentMethod = dto.paymentMethod || PaymentMethod.PROMPTPAY;
+      const qrCodeData =
+        paymentMethod === PaymentMethod.PROMPTPAY
+          ? await this.paymentService.generatePromptPayQR(total)
+          : null;
 
       // Create order with items
       const order = await this.prisma.order.create({
@@ -111,7 +119,8 @@ export class OrdersService {
           userId,
           total,
           status: OrderStatus.PENDING,
-          qrCodeData, // Save QR code
+          paymentMethod,
+          qrCodeData,
           orderItems: {
             create: reservedKeys.map((item) => ({
               gameId: item.gameId,

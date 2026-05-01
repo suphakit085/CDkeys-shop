@@ -1,36 +1,41 @@
-#  CD Keys Marketplace
+# CD Keys Marketplace
 
-A full-stack digital game keys marketplace built with Next.js, NestJS, and PostgreSQL.
+A full-stack digital game keys marketplace built with Next.js, NestJS, PostgreSQL, Prisma, PromptPay, and Stripe Hosted Checkout.
 
 ## Features
 
 ### Customer Features
--  Browse game catalog with filters (platform, genre, price)
--  Search games
--  Add to cart & checkout
--  Mock payment processing
--  View purchased keys with reveal/copy
--  Order history
+
+- Browse game catalog with filters
+- Search games
+- Add games to cart
+- Checkout with PromptPay or Stripe hosted card payment
+- View purchased keys with reveal/copy
+- Order history
 
 ### Admin Features
--  Dashboard with sales stats
--  Game management (CRUD)
--  Bulk CD key upload
--  Key status tracking
--  Order monitoring
+
+- Dashboard with sales stats
+- Game management
+- Bulk CD key upload
+- Key status tracking
+- Order monitoring
+- Manual payment verification for PromptPay slips
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14 + Tailwind CSS |
+| --- | --- |
+| Frontend | Next.js App Router + Tailwind CSS |
 | Backend | NestJS |
 | Database | PostgreSQL + Prisma ORM |
-| Auth | JWT (Access + Refresh tokens) |
+| Auth | JWT access and refresh tokens |
+| Payments | PromptPay + Stripe Checkout |
 
 ## Setup
 
 ### Prerequisites
+
 - Node.js 18+
 - PostgreSQL database
 
@@ -38,81 +43,99 @@ A full-stack digital game keys marketplace built with Next.js, NestJS, and Postg
 
 ```bash
 cd backend
-
-# Install dependencies
 npm install
-
-# Copy environment file
 cp .env.example .env
-
-# Update DATABASE_URL in .env with your PostgreSQL connection
-
-# Generate Prisma client
 npm run db:generate
-
-# Run migrations
 npm run db:migrate
-
-# Seed database with sample data
 npm run db:seed
-
-# Start development server
 npm run start:dev
 ```
+
+Update `DATABASE_URL` and the payment environment variables in `backend/.env` before starting the backend.
 
 ### Frontend Setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
 ## Demo Accounts
 
 | Role | Email | Password |
-|------|-------|----------|
+| --- | --- | --- |
 | Admin | admin@cdkeys.com | admin123 |
 | Customer | demo@email.com | demo123 |
 
+## Payment Setup
+
+PromptPay remains the default payment method. Stripe is optional but needs these backend environment variables when enabled:
+
+```bash
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_CURRENCY=usd
+FRONTEND_URL="http://localhost:3000"
+```
+
+For Railway production, set `FRONTEND_URL` to the Vercel frontend URL and create a Stripe webhook that points to:
+
+```text
+https://your-railway-backend-domain/api/payment/stripe/webhook
+```
+
+Recommended Stripe webhook events:
+
+- `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.expired`
+
 ## Payment Flow
 
-```
+```text
 Start Checkout
-    → Reserve Key (status: RESERVED)
-    → Mock Payment
-        → Success → Mark SOLD
-        → Fail → Release Key (status: AVAILABLE)
+  -> Reserve key
+  -> Choose payment method
+     -> PromptPay: upload slip, verify payment, mark key as sold
+     -> Stripe: redirect to hosted Checkout, confirm webhook, mark key as sold
 ```
 
 ## API Endpoints
 
 ### Auth
+
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login
-- `GET /api/auth/profile` - Get profile (auth required)
+- `GET /api/auth/profile` - Get profile
 
 ### Games
-- `GET /api/games` - List games (with filters)
+
+- `GET /api/games` - List games
 - `GET /api/games/:id` - Get game details
-- `POST /api/games` - Create game (admin)
-- `PUT /api/games/:id` - Update game (admin)
-- `DELETE /api/games/:id` - Delete game (admin)
+- `POST /api/games` - Create game
+- `PUT /api/games/:id` - Update game
+- `DELETE /api/games/:id` - Delete game
 
 ### Orders
+
 - `GET /api/orders` - My orders
 - `POST /api/orders` - Create order
-- `POST /api/orders/pay` - Process payment
-- `GET /api/orders/admin/stats` - Sales stats (admin)
+- `GET /api/orders/admin/stats` - Sales stats
 
-### Keys (Admin)
+### Payments
+
+- `POST /api/payment/upload-slip/:orderId` - Upload PromptPay slip
+- `POST /api/payment/verify/:orderId` - Verify payment manually
+- `POST /api/payment/stripe/checkout/:orderId` - Create Stripe Checkout session
+- `POST /api/payment/stripe/webhook` - Stripe webhook receiver
+
+### Keys
+
 - `GET /api/keys/game/:gameId` - Keys by game
 - `POST /api/keys` - Bulk add keys
 - `DELETE /api/keys/:id` - Delete key
 
 ## License
+
 MIT

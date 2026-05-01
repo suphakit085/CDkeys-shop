@@ -184,8 +184,8 @@ export const ordersApi = {
     getOne: (id: string, token: string) =>
         request<Order>(`/orders/${id}`, { token }),
 
-    create: (items: { gameId: string; quantity: number }[], token: string) =>
-        request<Order>('/orders', { method: 'POST', body: { items }, token }),
+    create: (items: { gameId: string; quantity: number }[], token: string, paymentMethod: PaymentMethod = 'PROMPTPAY') =>
+        request<Order>('/orders', { method: 'POST', body: { items, paymentMethod }, token }),
 
     pay: (orderId: string, token: string, simulateFail = false) =>
         request<{ success: boolean; message: string; order?: Order }>('/orders/pay', {
@@ -242,6 +242,9 @@ export const paymentApi = {
             slipData?: { amount?: number; transRef?: string };
         }>;
     },
+
+    createStripeCheckout: (orderId: string, token: string) =>
+        request<{ url: string; sessionId: string }>(`/payment/stripe/checkout/${orderId}`, { method: 'POST', token }),
 
     getPending: (token: string) =>
         request<PendingPayment[]>('/payment/pending', { token }),
@@ -321,9 +324,13 @@ export interface Order {
     userId: string;
     total: number;
     status: 'PENDING' | 'COMPLETED' | 'FAILED';
+    paymentMethod?: PaymentMethod;
     paymentStatus?: 'PENDING' | 'SLIP_UPLOADED' | 'VERIFIED' | 'REJECTED';
     paymentSlipUrl?: string;
     qrCodeData?: string;
+    stripeCheckoutSessionId?: string;
+    stripePaymentIntentId?: string;
+    stripePaymentStatus?: string;
     paidAt?: string;
     createdAt: string;
     user?: { email: string; name: string };
@@ -372,6 +379,8 @@ export interface CreateGameDto {
     ageRating?: string;
     screenshots?: string[];
 }
+
+export type PaymentMethod = 'PROMPTPAY' | 'CREDIT_CARD';
 
 export interface SalesStats {
     totalRevenue: number;

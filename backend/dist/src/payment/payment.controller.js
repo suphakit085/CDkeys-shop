@@ -25,7 +25,7 @@ const path_1 = require("path");
 const multerOptions = {
     storage: (0, multer_1.diskStorage)({
         destination: './uploads/slips',
-        filename: (req, file, cb) => {
+        filename: (_req, file, cb) => {
             const randomName = Array(32)
                 .fill(null)
                 .map(() => Math.round(Math.random() * 16).toString(16))
@@ -36,12 +36,12 @@ const multerOptions = {
     limits: {
         fileSize: 5 * 1024 * 1024,
     },
-    fileFilter: (req, file, cb) => {
+    fileFilter: (_req, file, cb) => {
         if (file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
             cb(null, true);
         }
         else {
-            cb(new common_1.BadRequestException('Only image files allowed'), false);
+            cb(new common_1.BadRequestException('Only image files allowed'));
         }
     },
 };
@@ -62,7 +62,9 @@ let PaymentController = class PaymentController {
         catch (error) {
             const fs = await import('fs/promises');
             const path = await import('path');
-            await fs.unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename)).catch(() => undefined);
+            await fs
+                .unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename))
+                .catch(() => undefined);
             throw error;
         }
         return {
@@ -71,6 +73,16 @@ let PaymentController = class PaymentController {
             autoVerified: result.autoVerified,
             slipData: result.slipData,
         };
+    }
+    async createStripeCheckout(orderId, req) {
+        return this.paymentService.createStripeCheckoutSession(orderId, req.user.id);
+    }
+    async handleStripeWebhook(req, signature) {
+        const rawBody = req.rawBody?.toString('utf8');
+        if (!rawBody) {
+            throw new common_1.BadRequestException('Missing raw request body');
+        }
+        return this.paymentService.handleStripeWebhook(rawBody, signature);
     }
     async verifyPayment(orderId, req) {
         await this.paymentService.verifyPayment(orderId, req.user.id);
@@ -96,6 +108,23 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "uploadSlip", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('stripe/checkout/:orderId'),
+    __param(0, (0, common_1.Param)('orderId')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "createStripeCheckout", null);
+__decorate([
+    (0, common_1.Post)('stripe/webhook'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Headers)('stripe-signature')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "handleStripeWebhook", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
