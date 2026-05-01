@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copy prisma schema AND migrations
 COPY prisma ./prisma/
@@ -27,5 +27,4 @@ RUN ls -la prisma/migrations/ || echo "No migrations folder!"
 
 EXPOSE 3001
 
-# Use db push instead of migrate deploy for first deploy
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm run start:prod"]
+CMD ["npm", "run", "start:prod"]

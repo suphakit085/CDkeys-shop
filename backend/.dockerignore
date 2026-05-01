@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.tmp
+tmp
+uploads
+backend
+coverage
+*.log
+npm-debug.log*

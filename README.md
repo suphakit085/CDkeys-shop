@@ -61,6 +61,64 @@ npm install
 npm run dev
 ```
 
+## Railway Backend Deployment
+
+Use this when moving the backend from Render to Railway.
+
+1. Create a new Railway project from the GitHub repository.
+2. Add a PostgreSQL database service in the Railway project.
+3. Create or select the backend service.
+4. Set the backend service root directory to `/backend`.
+5. Set the Railway config file path to `/backend/railway.json`.
+6. Generate a public domain for the backend service.
+7. Copy backend environment variables from Render into Railway.
+8. Update Vercel frontend env to point at the new Railway backend URL.
+9. Update Stripe webhook URL to the new Railway backend URL.
+
+Railway will use [backend/railway.json](backend/railway.json) to build the Dockerfile, run Prisma migrations before deploy, start the NestJS server, and check `/api/health`.
+
+Required Railway backend variables:
+
+```bash
+DATABASE_URL="postgresql://..."
+JWT_SECRET="..."
+JWT_REFRESH_SECRET="..."
+FRONTEND_URL="https://your-vercel-frontend-url"
+PROMPTPAY_ID="..."
+STRIPE_SECRET_KEY="sk_test_or_live_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_CURRENCY=usd
+```
+
+Recommended production variables when uploads/emails are enabled:
+
+```bash
+CLOUDINARY_CLOUD_NAME="..."
+CLOUDINARY_API_KEY="..."
+CLOUDINARY_API_SECRET="..."
+SMTP_HOST="..."
+SMTP_PORT=587
+SMTP_USER="..."
+SMTP_PASS="..."
+SMTP_FROM="..."
+STORE_NAME="CD Keys Marketplace"
+SLIPOK_API_KEY="..."
+SLIPOK_BRANCH_ID="..."
+```
+
+After Railway generates a backend domain, update the frontend variables in Vercel:
+
+```text
+NEXT_PUBLIC_API_URL=https://your-railway-backend-domain/api
+NEXT_PUBLIC_BACKEND_URL=https://your-railway-backend-domain
+```
+
+Then update the Stripe webhook endpoint to:
+
+```text
+https://your-railway-backend-domain/api/payment/stripe/webhook
+```
+
 ## Demo Accounts
 
 | Role | Email | Password |
