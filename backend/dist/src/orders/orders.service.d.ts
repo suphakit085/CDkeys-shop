@@ -30,8 +30,8 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -64,8 +64,8 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -93,8 +93,8 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -133,8 +133,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;
@@ -171,8 +171,8 @@ export declare class OrdersService {
     }>;
     findAll(filters?: AdminOrderFilters): Promise<({
         user: {
-            name: string;
             email: string;
+            name: string;
         };
         orderItems: ({
             game: {
@@ -188,8 +188,8 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -209,8 +209,8 @@ export declare class OrdersService {
     })[] | {
         data: ({
             user: {
-                name: string;
                 email: string;
+                name: string;
             };
             orderItems: ({
                 game: {
@@ -226,8 +226,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;
@@ -271,8 +271,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;

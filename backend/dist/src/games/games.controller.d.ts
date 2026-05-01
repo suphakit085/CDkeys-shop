@@ -7,11 +7,11 @@ export declare class GamesController {
     findAll(platform?: Platform, genre?: string, minPrice?: string, maxPrice?: string, search?: string, page?: string, limit?: string): Promise<{
         availableKeys: number;
         _count: undefined;
-        platform: import("@prisma/client").$Enums.Platform;
-        genre: string;
         id: string;
         title: string;
         description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         developer: string | null;
@@ -31,11 +31,11 @@ export declare class GamesController {
         data: {
             availableKeys: number;
             _count: undefined;
-            platform: import("@prisma/client").$Enums.Platform;
-            genre: string;
             id: string;
             title: string;
             description: string | null;
+            platform: import("@prisma/client").$Enums.Platform;
+            genre: string;
             price: import("@prisma/client/runtime/library").Decimal;
             imageUrl: string | null;
             developer: string | null;
@@ -66,11 +66,11 @@ export declare class GamesController {
     findOne(id: string): Promise<{
         availableKeys: number;
         _count: undefined;
-        platform: import("@prisma/client").$Enums.Platform;
-        genre: string;
         id: string;
         title: string;
         description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         developer: string | null;
@@ -88,11 +88,11 @@ export declare class GamesController {
         updatedAt: Date;
     }>;
     create(dto: CreateGameDto): Promise<{
-        platform: import("@prisma/client").$Enums.Platform;
-        genre: string;
         id: string;
         title: string;
         description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         developer: string | null;
@@ -110,11 +110,11 @@ export declare class GamesController {
         updatedAt: Date;
     }>;
     update(id: string, dto: UpdateGameDto): Promise<{
-        platform: import("@prisma/client").$Enums.Platform;
-        genre: string;
         id: string;
         title: string;
         description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         developer: string | null;
@@ -132,11 +132,11 @@ export declare class GamesController {
         updatedAt: Date;
     }>;
     delete(id: string): Promise<{
-        platform: import("@prisma/client").$Enums.Platform;
-        genre: string;
         id: string;
         title: string;
         description: string | null;
+        platform: import("@prisma/client").$Enums.Platform;
+        genre: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         developer: string | null;

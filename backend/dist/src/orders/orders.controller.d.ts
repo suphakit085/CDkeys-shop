@@ -22,8 +22,8 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -43,8 +43,8 @@ export declare class OrdersController {
     })[]>;
     findAll(page?: string, limit?: string, search?: string, status?: string, paymentStatus?: string): Promise<({
         user: {
-            name: string;
             email: string;
+            name: string;
         };
         orderItems: ({
             game: {
@@ -60,8 +60,8 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -81,8 +81,8 @@ export declare class OrdersController {
     })[] | {
         data: ({
             user: {
-                name: string;
                 email: string;
+                name: string;
             };
             orderItems: ({
                 game: {
@@ -98,8 +98,8 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;
@@ -142,8 +142,8 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;
@@ -181,8 +181,8 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -214,8 +214,8 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            gameId: string;
             orderId: string;
+            gameId: string;
         })[];
     } & {
         id: string;
@@ -258,8 +258,8 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                gameId: string;
                 orderId: string;
+                gameId: string;
             })[];
         } & {
             id: string;

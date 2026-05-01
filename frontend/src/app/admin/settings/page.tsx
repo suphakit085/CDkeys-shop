@@ -1,277 +1,359 @@
 /* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_URL, BACKEND_URL } from '@/lib/config';
+import { API_URL, BACKEND_URL, getUploadUrl } from '@/lib/config';
+import {
+  AdminAccessRequired,
+  AdminNotice,
+  AdminPageSkeleton,
+  AdminPanel,
+  AdminShell,
+} from '@/components/admin/AdminUI';
+
+type StoreSettings = {
+  storeName: string;
+  tagline: string | null;
+  logoUrl: string | null;
+  primaryColor: string;
+};
+
+const defaultSettings: StoreSettings = {
+  storeName: 'CDKeys Marketplace',
+  tagline: 'Get your favorite games instantly',
+  logoUrl: null,
+  primaryColor: '#14b8a6',
+};
+
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { message?: string };
+    return data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeUploadedUrl(url: string) {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `${BACKEND_URL}${url}`;
+}
 
 export default function AdminSettingsPage() {
-    const { user } = useAuth();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+  const { token, isAdmin, isLoading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-    // Form state
-    const [storeName, setStoreName] = useState('');
-    const [logoUrl, setLogoUrl] = useState('');
-    const [tagline, setTagline] = useState('');
-    const [primaryColor, setPrimaryColor] = useState('#8b5cf6');
+  const [storeName, setStoreName] = useState(defaultSettings.storeName);
+  const [logoUrl, setLogoUrl] = useState(defaultSettings.logoUrl || '');
+  const [tagline, setTagline] = useState(defaultSettings.tagline || '');
+  const [primaryColor, setPrimaryColor] = useState(defaultSettings.primaryColor);
 
-    useEffect(() => {
-        loadSettings();
-    }, []);
+  const logoPreview = logoUrl ? getUploadUrl(logoUrl) : '';
 
-    const loadSettings = async () => {
-        try {
-            const response = await fetch(`${API_URL}/settings`);
-            const data = await response.json();
-            setStoreName(data.storeName || '');
-            setLogoUrl(data.logoUrl || '');
-            setTagline(data.tagline || '');
-            setPrimaryColor(data.primaryColor || '#8b5cf6');
-        } catch {
-            setError('ไม่สามารถโหลดการตั้งค่าได้');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const loadSettings = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        setIsSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/settings`);
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Unable to load settings'));
+      }
 
-        try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_URL}/settings`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    storeName,
-                    logoUrl: logoUrl || null,
-                    tagline: tagline || null,
-                    primaryColor,
-                }),
-            });
-
-            if (response.ok) {
-                setSuccess('บันทึกการตั้งค่าสำเร็จ!');
-                loadSettings();
-            } else {
-                const data = await response.json();
-                setError(data.message || 'เกิดข้อผิดพลาด');
-            }
-        } catch {
-            setError('ไม่สามารถบันทึกข้อมูลได้');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploading(true);
-        try {
-            const token = localStorage.getItem('accessToken');
-            const formData = new FormData();
-            formData.append('logo', file);
-
-            const response = await fetch(`${API_URL}/settings/upload-logo`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setLogoUrl(`${BACKEND_URL}${data.url}`);
-            } else {
-                setError('อัพโหลดโลโก้ไม่สำเร็จ');
-            }
-        } catch {
-            setError('เกิดข้อผิดพลาดในการอัพโหลด');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    if (!user || user?.role !== 'ADMIN') {
-        return (
-            <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-                <h1 className="text-2xl font-bold text-red-500">Admin Access Required</h1>
-                <Link href="/login" className="btn-primary mt-4 inline-block">
-                    เข้าสู่ระบบ
-                </Link>
-            </div>
-        );
+      const data = (await response.json()) as Partial<StoreSettings>;
+      setStoreName(data.storeName || defaultSettings.storeName);
+      setLogoUrl(data.logoUrl || '');
+      setTagline(data.tagline || '');
+      setPrimaryColor(data.primaryColor || defaultSettings.primaryColor);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load settings');
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
 
-    if (isLoading) {
-        return (
-            <div className="max-w-3xl mx-auto px-4 py-8">
-                <div className="animate-pulse space-y-6">
-                    <div className="h-8 bg-gray-700/50 rounded w-1/3" />
-                    <div className="glass-card h-64" />
-                </div>
-            </div>
-        );
+  useEffect(() => {
+    if (!authLoading && isAdmin) {
+      loadSettings();
     }
+  }, [authLoading, isAdmin, loadSettings]);
 
-    return (
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-purple-400">⚙️ ตั้งค่าร้าน</h1>
-                    <p className="text-gray-400 mt-1">จัดการชื่อร้าน โลโก้ และการตั้งค่าอื่นๆ</p>
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+
+    setError('');
+    setSuccess('');
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(`${API_URL}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          storeName,
+          logoUrl: logoUrl || null,
+          tagline: tagline || null,
+          primaryColor,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Unable to save settings'));
+      }
+
+      setSuccess('Settings saved.');
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save settings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !token) return;
+
+    setUploading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const response = await fetch(`${API_URL}/settings/upload-logo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Logo upload failed'));
+      }
+
+      const data = (await response.json()) as { url: string };
+      setLogoUrl(normalizeUploadedUrl(data.url));
+      setSuccess('Logo uploaded. Save settings to publish it.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Logo upload failed');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  if (authLoading) {
+    return <AdminPageSkeleton rows={2} />;
+  }
+
+  if (!isAdmin) {
+    return <AdminAccessRequired />;
+  }
+
+  if (isLoading) {
+    return <AdminPageSkeleton rows={2} />;
+  }
+
+  return (
+    <AdminShell
+      title="Store Settings"
+      description="Control the storefront name, brand message, logo, and accent color used across the shop."
+      maxWidth="standard"
+      actions={
+        <button
+          type="button"
+          onClick={loadSettings}
+          className="btn-secondary px-4"
+          disabled={isSaving || uploading}
+        >
+          Reload
+        </button>
+      }
+    >
+      {error && <AdminNotice tone="error">{error}</AdminNotice>}
+      {success && <AdminNotice tone="success">{success}</AdminNotice>}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <AdminPanel
+          title="Brand details"
+          description="These values appear in the header and customer-facing pages."
+        >
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="admin-form-grid">
+              <label>
+                <span className="admin-field-label">Store name</span>
+                <input
+                  type="text"
+                  value={storeName}
+                  onChange={(event) => setStoreName(event.target.value)}
+                  className="input"
+                  required
+                  placeholder={defaultSettings.storeName}
+                />
+              </label>
+
+              <label>
+                <span className="admin-field-label">Primary color</span>
+                <div className="flex gap-3">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(event) => setPrimaryColor(event.target.value)}
+                    className="h-11 w-14 shrink-0 cursor-pointer rounded-lg border border-[color:var(--border)] bg-transparent p-1"
+                    aria-label="Primary color"
+                  />
+                  <input
+                    type="text"
+                    value={primaryColor}
+                    onChange={(event) => setPrimaryColor(event.target.value)}
+                    className="input"
+                    placeholder="#14b8a6"
+                  />
                 </div>
-                <Link href="/admin" className="btn-secondary py-2 px-4">
-                    ← กลับ
-                </Link>
+              </label>
             </div>
 
-            {error && (
-                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-red-400">
-                    {error}
-                </div>
-            )}
+            <label>
+              <span className="admin-field-label">Tagline</span>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(event) => setTagline(event.target.value)}
+                className="input"
+                placeholder={defaultSettings.tagline || ''}
+              />
+            </label>
 
-            {success && (
-                <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-4 mb-6 text-green-400">
-                    {success}
-                </div>
-            )}
+            <label>
+              <span className="admin-field-label">Logo URL</span>
+              <input
+                type="text"
+                value={logoUrl}
+                onChange={(event) => setLogoUrl(event.target.value)}
+                className="input"
+                placeholder="https://... or /uploads/logo.png"
+              />
+            </label>
 
-            <form onSubmit={handleSubmit}>
-                <div className="glass-card p-6 space-y-6">
-                    {/* Store Name */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            ชื่อร้าน *
-                        </label>
-                        <input
-                            type="text"
-                            value={storeName}
-                            onChange={(e) => setStoreName(e.target.value)}
-                            className="input"
-                            required
-                            placeholder="CDKeys Marketplace"
-                        />
-                    </div>
+            <div className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 sm:grid-cols-[96px_minmax(0,1fr)]">
+              <div className="admin-preview-box aspect-square">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Logo preview"
+                    className="h-full w-full object-contain p-3"
+                  />
+                ) : (
+                  <span className="text-xl font-black text-[color:var(--foreground)]">
+                    CK
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[color:var(--foreground)]">
+                  Upload a new logo
+                </p>
+                <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                  PNG, JPG, or WEBP files work best. The image will be shown in the
+                  store header after saving.
+                </p>
+                <label className="btn-secondary mt-3 inline-flex cursor-pointer px-4">
+                  {uploading ? 'Uploading...' : 'Upload logo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
+            </div>
 
-                    {/* Tagline */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            สโลแกน
-                        </label>
-                        <input
-                            type="text"
-                            value={tagline}
-                            onChange={(e) => setTagline(e.target.value)}
-                            className="input"
-                            placeholder="Get your favorite games instantly"
-                        />
-                    </div>
+            <div className="admin-button-row pt-1">
+              <button
+                type="submit"
+                disabled={isSaving || uploading}
+                className="btn-primary px-6 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save settings'}
+              </button>
+            </div>
+          </form>
+        </AdminPanel>
 
-                    {/* Logo */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            โลโก้
-                        </label>
-                        <div className="flex items-center gap-4">
-                            {logoUrl && (
-                                <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden">
-                                    <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <input
-                                    type="text"
-                                    value={logoUrl}
-                                    onChange={(e) => setLogoUrl(e.target.value)}
-                                    className="input mb-2"
-                                    placeholder="URL โลโก้ หรืออัพโหลด"
-                                />
-                                <label className="btn-secondary py-2 px-4 cursor-pointer inline-block">
-                                    {uploading ? 'กำลังอัพโหลด...' : '📤 อัพโหลดโลโก้'}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleLogoUpload}
-                                        className="hidden"
-                                    />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
+        <AdminPanel
+          title="Header preview"
+          description="A compact preview of the storefront brand block."
+        >
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt=""
+                    className="h-full w-full object-contain p-2"
+                  />
+                ) : (
+                  <span
+                    className="text-sm font-black"
+                    style={{ color: primaryColor }}
+                  >
+                    CK
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p
+                  className="truncate text-lg font-black text-[color:var(--foreground)]"
+                  style={{ color: primaryColor }}
+                >
+                  {storeName || defaultSettings.storeName}
+                </p>
+                <p className="truncate text-sm text-[color:var(--text-muted)]">
+                  {tagline || defaultSettings.tagline}
+                </p>
+              </div>
+            </div>
+          </div>
 
-                    {/* Primary Color */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            สีหลัก
-                        </label>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="color"
-                                value={primaryColor}
-                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                className="w-12 h-12 rounded-lg cursor-pointer border-2 border-gray-600"
-                            />
-                            <input
-                                type="text"
-                                value={primaryColor}
-                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                className="input w-32"
-                                placeholder="#8b5cf6"
-                            />
-                            <span className="text-gray-400 text-sm">ใช้สำหรับธีมหลักของเว็บไซต์</span>
-                        </div>
-                    </div>
-
-                    {/* Preview */}
-                    <div className="border-t border-gray-700 pt-6">
-                        <h3 className="text-lg font-semibold text-gray-300 mb-4">👁️ ตัวอย่าง</h3>
-                        <div className="bg-gray-900/50 rounded-lg p-4">
-                            <div className="flex items-center gap-3">
-                                {logoUrl ? (
-                                    <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-lg object-contain" />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 flex items-center justify-center text-xl">
-                                        🎮
-                                    </div>
-                                )}
-                                <div>
-                                    <h4 className="font-bold text-lg" style={{ color: primaryColor }}>
-                                        {storeName || 'CDKeys Marketplace'}
-                                    </h4>
-                                    <p className="text-gray-400 text-sm">
-                                        {tagline || 'Get your favorite games instantly'}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Submit */}
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            type="submit"
-                            disabled={isSaving}
-                            className="btn-primary py-3 px-6 disabled:opacity-50"
-                        >
-                            {isSaving ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่า'}
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    );
+          <div className="mt-4 grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] p-3">
+              <span className="font-bold text-[color:var(--text-muted)]">
+                Brand color
+              </span>
+              <span className="flex items-center gap-2 font-black text-[color:var(--foreground)]">
+                <span
+                  className="h-4 w-4 rounded-full border border-[color:var(--border)]"
+                  style={{ backgroundColor: primaryColor }}
+                />
+                {primaryColor}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] p-3">
+              <span className="font-bold text-[color:var(--text-muted)]">
+                Logo source
+              </span>
+              <span className="truncate text-right font-black text-[color:var(--foreground)]">
+                {logoUrl ? 'Custom logo' : 'Initial mark'}
+              </span>
+            </div>
+          </div>
+        </AdminPanel>
+      </div>
+    </AdminShell>
+  );
 }

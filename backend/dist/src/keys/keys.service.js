@@ -25,7 +25,13 @@ let KeysService = class KeysService {
                 game: { select: { title: true, platform: true } },
                 orderItem: {
                     select: {
-                        order: { select: { id: true, createdAt: true, user: { select: { email: true } } } },
+                        order: {
+                            select: {
+                                id: true,
+                                createdAt: true,
+                                user: { select: { email: true } },
+                            },
+                        },
                     },
                 },
             },
@@ -33,7 +39,9 @@ let KeysService = class KeysService {
         });
     }
     async addKeys(gameId, keys) {
-        const normalizedKeys = [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
+        const normalizedKeys = [
+            ...new Set(keys.map((key) => key.trim()).filter(Boolean)),
+        ];
         if (normalizedKeys.length === 0) {
             throw new common_1.BadRequestException('At least one valid key is required');
         }

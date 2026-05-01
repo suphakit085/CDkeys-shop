@@ -30,7 +30,9 @@ let OrdersService = class OrdersService {
             include: {
                 orderItems: {
                     include: {
-                        game: { select: { id: true, title: true, platform: true, imageUrl: true } },
+                        game: {
+                            select: { id: true, title: true, platform: true, imageUrl: true },
+                        },
                         cdKey: { select: { keyCode: true } },
                     },
                 },
@@ -44,7 +46,9 @@ let OrdersService = class OrdersService {
             include: {
                 orderItems: {
                     include: {
-                        game: { select: { id: true, title: true, platform: true, imageUrl: true } },
+                        game: {
+                            select: { id: true, title: true, platform: true, imageUrl: true },
+                        },
                         cdKey: { select: { keyCode: true } },
                     },
                 },
@@ -78,7 +82,7 @@ let OrdersService = class OrdersService {
                 }
             }
             const total = reservedKeys.reduce((sum, item) => sum + item.price, 0);
-            const qrCodeData = await this.paymentService.generatePromptPayQR(total, '');
+            const qrCodeData = await this.paymentService.generatePromptPayQR(total);
             const order = await this.prisma.order.create({
                 data: {
                     userId,
@@ -202,14 +206,24 @@ let OrdersService = class OrdersService {
                 { id: { contains: filters.search, mode: 'insensitive' } },
                 { user: { email: { contains: filters.search, mode: 'insensitive' } } },
                 { user: { name: { contains: filters.search, mode: 'insensitive' } } },
-                { orderItems: { some: { game: { title: { contains: filters.search, mode: 'insensitive' } } } } },
+                {
+                    orderItems: {
+                        some: {
+                            game: {
+                                title: { contains: filters.search, mode: 'insensitive' },
+                            },
+                        },
+                    },
+                },
             ];
         }
         const include = {
             user: { select: { email: true, name: true } },
             orderItems: {
                 include: {
-                    game: { select: { id: true, title: true, platform: true, imageUrl: true } },
+                    game: {
+                        select: { id: true, title: true, platform: true, imageUrl: true },
+                    },
                     cdKey: { select: { keyCode: true } },
                 },
             },
@@ -249,8 +263,12 @@ let OrdersService = class OrdersService {
         if (options?.page === undefined && options?.limit === undefined) {
             return null;
         }
-        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
-        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+        const page = Number.isFinite(options?.page)
+            ? Math.max(1, Math.floor(options?.page || 1))
+            : 1;
+        const limit = Number.isFinite(options?.limit)
+            ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20)))
+            : 20;
         return { page, limit };
     }
     async getSalesStats() {

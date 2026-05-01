@@ -15,7 +15,7 @@ export declare class PaymentService {
     private emailService;
     private readonly logger;
     constructor(prisma: PrismaService, slipOkService: SlipOkService, emailService: EmailService);
-    generatePromptPayQR(amount: number, orderId: string): Promise<string>;
+    generatePromptPayQR(amount: number): Promise<string>;
     uploadPaymentSlip(orderId: string, userId: string, slipUrl: string): Promise<SlipUploadResult>;
     private notifyAdminPendingPayment;
     private markPaymentVerified;

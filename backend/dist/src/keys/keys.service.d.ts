@@ -19,13 +19,13 @@ export declare class KeysService {
         } | null;
     } & {
         id: string;
-        gameId: string;
-        keyCode: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
-        reservedAt: Date | null;
-        orderItemId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.KeyStatus;
+        gameId: string;
+        keyCode: string;
+        reservedAt: Date | null;
+        orderItemId: string | null;
     })[]>;
     addKeys(gameId: string, keys: string[]): Promise<{
         added: number;
@@ -35,33 +35,33 @@ export declare class KeysService {
     releaseKey(keyId: string): Promise<void>;
     markAsSold(keyId: string, orderItemId: string): Promise<{
         id: string;
-        gameId: string;
-        keyCode: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
-        reservedAt: Date | null;
-        orderItemId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.KeyStatus;
+        gameId: string;
+        keyCode: string;
+        reservedAt: Date | null;
+        orderItemId: string | null;
     }>;
     updateStatus(keyId: string, status: KeyStatus): Promise<{
         id: string;
-        gameId: string;
-        keyCode: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
-        reservedAt: Date | null;
-        orderItemId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.KeyStatus;
+        gameId: string;
+        keyCode: string;
+        reservedAt: Date | null;
+        orderItemId: string | null;
     }>;
     deleteKey(keyId: string): Promise<{
         id: string;
-        gameId: string;
-        keyCode: string;
-        status: import("@prisma/client").$Enums.KeyStatus;
-        reservedAt: Date | null;
-        orderItemId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.KeyStatus;
+        gameId: string;
+        keyCode: string;
+        reservedAt: Date | null;
+        orderItemId: string | null;
     }>;
     getStats(gameId?: string): Promise<Record<string, number>>;
     releaseExpiredReservations(minutesOld?: number): Promise<{

@@ -1,13 +1,13 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Put,
-    Delete,
-    Body,
-    Param,
-    Query,
-    UseGuards,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { GamesService } from './games.service';
 import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
@@ -18,66 +18,66 @@ import { Role, Platform } from '@prisma/client';
 
 @Controller('games')
 export class GamesController {
-    constructor(private gamesService: GamesService) { }
+  constructor(private gamesService: GamesService) {}
 
-    @Get()
-    async findAll(
-        @Query('platform') platform?: Platform,
-        @Query('genre') genre?: string,
-        @Query('minPrice') minPrice?: string,
-        @Query('maxPrice') maxPrice?: string,
-        @Query('search') search?: string,
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
-    ) {
-        return this.gamesService.findAll({
-            platform,
-            genre,
-            minPrice: minPrice ? parseFloat(minPrice) : undefined,
-            maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-            search,
-            page: this.parsePositiveInt(page),
-            limit: this.parsePositiveInt(limit),
-        });
+  @Get()
+  async findAll(
+    @Query('platform') platform?: Platform,
+    @Query('genre') genre?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.gamesService.findAll({
+      platform,
+      genre,
+      minPrice: minPrice ? parseFloat(minPrice) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      search,
+      page: this.parsePositiveInt(page),
+      limit: this.parsePositiveInt(limit),
+    });
+  }
+
+  private parsePositiveInt(value?: string) {
+    if (!value) {
+      return undefined;
     }
 
-    private parsePositiveInt(value?: string) {
-        if (!value) {
-            return undefined;
-        }
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
 
-        const parsed = parseInt(value, 10);
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-    }
+  @Get('genres')
+  async getGenres() {
+    return this.gamesService.getGenres();
+  }
 
-    @Get('genres')
-    async getGenres() {
-        return this.gamesService.getGenres();
-    }
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.gamesService.findOne(id);
+  }
 
-    @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.gamesService.findOne(id);
-    }
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async create(@Body() dto: CreateGameDto) {
+    return this.gamesService.create(dto);
+  }
 
-    @Post()
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    async create(@Body() dto: CreateGameDto) {
-        return this.gamesService.create(dto);
-    }
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async update(@Param('id') id: string, @Body() dto: UpdateGameDto) {
+    return this.gamesService.update(id, dto);
+  }
 
-    @Put(':id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    async update(@Param('id') id: string, @Body() dto: UpdateGameDto) {
-        return this.gamesService.update(id, dto);
-    }
-
-    @Delete(':id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    async delete(@Param('id') id: string) {
-        return this.gamesService.delete(id);
-    }
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async delete(@Param('id') id: string) {
+    return this.gamesService.delete(id);
+  }
 }

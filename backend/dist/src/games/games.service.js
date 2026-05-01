@@ -91,8 +91,12 @@ let GamesService = class GamesService {
         if (options?.page === undefined && options?.limit === undefined) {
             return null;
         }
-        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
-        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+        const page = Number.isFinite(options?.page)
+            ? Math.max(1, Math.floor(options?.page || 1))
+            : 1;
+        const limit = Number.isFinite(options?.limit)
+            ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20)))
+            : 20;
         return { page, limit };
     }
     async findOne(id) {

@@ -11,3 +11,4 @@ npm-cache/
 .codex-localappdata/
 .npm-cache/
 backend/tmp/
+backend/.tmp/

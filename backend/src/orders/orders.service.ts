@@ -1,7 +1,7 @@
 import {
-    Injectable,
-    NotFoundException,
-    BadRequestException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { KeysService } from '../keys/keys.service';
@@ -10,347 +10,365 @@ import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { CreateOrderDto } from './dto/orders.dto';
 
 interface AdminOrderFilters {
-    page?: number;
-    limit?: number;
-    search?: string;
-    status?: OrderStatus;
-    paymentStatus?: PaymentStatus;
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
 }
 
 @Injectable()
 export class OrdersService {
-    constructor(
-        private prisma: PrismaService,
-        private keysService: KeysService,
-        private paymentService: PaymentService,
-    ) { }
+  constructor(
+    private prisma: PrismaService,
+    private keysService: KeysService,
+    private paymentService: PaymentService,
+  ) {}
 
-    // Get user's order history
-    async findByUser(userId: string) {
-        return this.prisma.order.findMany({
-            where: { userId },
+  // Get user's order history
+  async findByUser(userId: string) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      include: {
+        orderItems: {
+          include: {
+            game: {
+              select: { id: true, title: true, platform: true, imageUrl: true },
+            },
+            cdKey: { select: { keyCode: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Get single order details
+  async findOne(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: {
+        orderItems: {
+          include: {
+            game: {
+              select: { id: true, title: true, platform: true, imageUrl: true },
+            },
+            cdKey: { select: { keyCode: true } },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return order;
+  }
+
+  // Step 1: Create order and reserve keys
+  async createOrder(userId: string, dto: CreateOrderDto) {
+    const reservedKeys: { gameId: string; keyId: string; price: number }[] = [];
+
+    try {
+      // Get game prices and reserve keys
+      for (const item of dto.items) {
+        const game = await this.prisma.game.findUnique({
+          where: { id: item.gameId },
+        });
+
+        if (!game) {
+          throw new BadRequestException(`Game ${item.gameId} not found`);
+        }
+
+        // Reserve keys for each quantity
+        for (let i = 0; i < item.quantity; i++) {
+          const keyId = await this.keysService.reserveKey(item.gameId);
+
+          if (!keyId) {
+            throw new BadRequestException(
+              `Not enough keys available for ${game.title}`,
+            );
+          }
+
+          reservedKeys.push({
+            gameId: item.gameId,
+            keyId,
+            price: Number(game.price),
+          });
+        }
+      }
+
+      // Calculate total
+      const total = reservedKeys.reduce((sum, item) => sum + item.price, 0);
+
+      // Generate PromptPay QR code
+      const qrCodeData = await this.paymentService.generatePromptPayQR(total);
+
+      // Create order with items
+      const order = await this.prisma.order.create({
+        data: {
+          userId,
+          total,
+          status: OrderStatus.PENDING,
+          qrCodeData, // Save QR code
+          orderItems: {
+            create: reservedKeys.map((item) => ({
+              gameId: item.gameId,
+              price: item.price,
+            })),
+          },
+        },
+        include: {
+          orderItems: {
             include: {
-                orderItems: {
-                    include: {
-                        game: { select: { id: true, title: true, platform: true, imageUrl: true } },
-                        cdKey: { select: { keyCode: true } },
-                    },
-                },
+              game: { select: { title: true, platform: true } },
             },
-            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+
+      // Link reserved keys to order items
+      for (let i = 0; i < reservedKeys.length; i++) {
+        await this.prisma.cdKey.update({
+          where: { id: reservedKeys[i].keyId },
+          data: { orderItemId: order.orderItems[i].id },
         });
+      }
+
+      return order;
+    } catch (error) {
+      // Release all reserved keys on failure
+      for (const item of reservedKeys) {
+        await this.keysService.releaseKey(item.keyId);
+      }
+      throw error;
+    }
+  }
+
+  // Step 2: Process mock payment
+  async processPayment(orderId: string, userId: string, simulateFail = false) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId, status: OrderStatus.PENDING },
+      include: {
+        orderItems: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pending order not found');
     }
 
-    // Get single order details
-    async findOne(orderId: string, userId: string) {
-        const order = await this.prisma.order.findFirst({
-            where: { id: orderId, userId },
-            include: {
-                orderItems: {
-                    include: {
-                        game: { select: { id: true, title: true, platform: true, imageUrl: true } },
-                        cdKey: { select: { keyCode: true } },
-                    },
-                },
-            },
-        });
+    if (simulateFail) {
+      // Payment failed - release keys and mark order as failed
+      const keys = await this.prisma.cdKey.findMany({
+        where: {
+          orderItemId: { in: order.orderItems.map((i) => i.id) },
+        },
+      });
 
-        if (!order) {
-            throw new NotFoundException('Order not found');
-        }
+      for (const key of keys) {
+        await this.keysService.releaseKey(key.id);
+      }
 
-        return order;
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: OrderStatus.FAILED },
+      });
+
+      return { success: false, message: 'Payment failed' };
     }
 
-    // Step 1: Create order and reserve keys
-    async createOrder(userId: string, dto: CreateOrderDto) {
-        const reservedKeys: { gameId: string; keyId: string; price: number }[] = [];
+    // Payment success - mark keys as sold
+    await this.prisma.cdKey.updateMany({
+      where: {
+        orderItemId: { in: order.orderItems.map((i) => i.id) },
+      },
+      data: { status: 'SOLD' },
+    });
 
-        try {
-            // Get game prices and reserve keys
-            for (const item of dto.items) {
-                const game = await this.prisma.game.findUnique({
-                    where: { id: item.gameId },
-                });
+    // Update order status
+    const completedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.COMPLETED },
+      include: {
+        orderItems: {
+          include: {
+            game: { select: { title: true, platform: true, imageUrl: true } },
+            cdKey: { select: { keyCode: true } },
+          },
+        },
+      },
+    });
 
-                if (!game) {
-                    throw new BadRequestException(`Game ${item.gameId} not found`);
-                }
+    return {
+      success: true,
+      message: 'Payment successful',
+      order: completedOrder,
+    };
+  }
 
-                // Reserve keys for each quantity
-                for (let i = 0; i < item.quantity; i++) {
-                    const keyId = await this.keysService.reserveKey(item.gameId);
+  // Cancel a pending order (releases keys)
+  async cancelOrder(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId, status: OrderStatus.PENDING },
+      include: {
+        orderItems: { select: { id: true } },
+      },
+    });
 
-                    if (!keyId) {
-                        throw new BadRequestException(
-                            `Not enough keys available for ${game.title}`,
-                        );
-                    }
-
-                    reservedKeys.push({
-                        gameId: item.gameId,
-                        keyId,
-                        price: Number(game.price),
-                    });
-                }
-            }
-
-            // Calculate total
-            const total = reservedKeys.reduce((sum, item) => sum + item.price, 0);
-
-            // Generate PromptPay QR code
-            const qrCodeData = await this.paymentService.generatePromptPayQR(total, '');
-
-            // Create order with items
-            const order = await this.prisma.order.create({
-                data: {
-                    userId,
-                    total,
-                    status: OrderStatus.PENDING,
-                    qrCodeData, // Save QR code
-                    orderItems: {
-                        create: reservedKeys.map((item) => ({
-                            gameId: item.gameId,
-                            price: item.price,
-                        })),
-                    },
-                },
-                include: {
-                    orderItems: {
-                        include: {
-                            game: { select: { title: true, platform: true } },
-                        },
-                    },
-                },
-            });
-
-            // Link reserved keys to order items
-            for (let i = 0; i < reservedKeys.length; i++) {
-                await this.prisma.cdKey.update({
-                    where: { id: reservedKeys[i].keyId },
-                    data: { orderItemId: order.orderItems[i].id },
-                });
-            }
-
-            return order;
-        } catch (error) {
-            // Release all reserved keys on failure
-            for (const item of reservedKeys) {
-                await this.keysService.releaseKey(item.keyId);
-            }
-            throw error;
-        }
+    if (!order) {
+      throw new NotFoundException('Pending order not found');
     }
 
-    // Step 2: Process mock payment
-    async processPayment(orderId: string, userId: string, simulateFail = false) {
-        const order = await this.prisma.order.findFirst({
-            where: { id: orderId, userId, status: OrderStatus.PENDING },
-            include: {
-                orderItems: {
-                    select: { id: true },
-                },
-            },
-        });
+    // Release keys
+    const keys = await this.prisma.cdKey.findMany({
+      where: {
+        orderItemId: { in: order.orderItems.map((i) => i.id) },
+      },
+    });
 
-        if (!order) {
-            throw new NotFoundException('Pending order not found');
-        }
-
-        if (simulateFail) {
-            // Payment failed - release keys and mark order as failed
-            const keys = await this.prisma.cdKey.findMany({
-                where: {
-                    orderItemId: { in: order.orderItems.map((i) => i.id) },
-                },
-            });
-
-            for (const key of keys) {
-                await this.keysService.releaseKey(key.id);
-            }
-
-            await this.prisma.order.update({
-                where: { id: orderId },
-                data: { status: OrderStatus.FAILED },
-            });
-
-            return { success: false, message: 'Payment failed' };
-        }
-
-        // Payment success - mark keys as sold
-        await this.prisma.cdKey.updateMany({
-            where: {
-                orderItemId: { in: order.orderItems.map((i) => i.id) },
-            },
-            data: { status: 'SOLD' },
-        });
-
-        // Update order status
-        const completedOrder = await this.prisma.order.update({
-            where: { id: orderId },
-            data: { status: OrderStatus.COMPLETED },
-            include: {
-                orderItems: {
-                    include: {
-                        game: { select: { title: true, platform: true, imageUrl: true } },
-                        cdKey: { select: { keyCode: true } },
-                    },
-                },
-            },
-        });
-
-        return {
-            success: true,
-            message: 'Payment successful',
-            order: completedOrder,
-        };
+    for (const key of keys) {
+      await this.keysService.releaseKey(key.id);
     }
 
-    // Cancel a pending order (releases keys)
-    async cancelOrder(orderId: string, userId: string) {
-        const order = await this.prisma.order.findFirst({
-            where: { id: orderId, userId, status: OrderStatus.PENDING },
-            include: {
-                orderItems: { select: { id: true } },
-            },
-        });
+    // Update order status
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.FAILED },
+    });
+  }
 
-        if (!order) {
-            throw new NotFoundException('Pending order not found');
-        }
+  // Admin: get all orders
+  async findAll(filters?: AdminOrderFilters) {
+    const where: Prisma.OrderWhereInput = {};
 
-        // Release keys
-        const keys = await this.prisma.cdKey.findMany({
-            where: {
-                orderItemId: { in: order.orderItems.map((i) => i.id) },
-            },
-        });
-
-        for (const key of keys) {
-            await this.keysService.releaseKey(key.id);
-        }
-
-        // Update order status
-        return this.prisma.order.update({
-            where: { id: orderId },
-            data: { status: OrderStatus.FAILED },
-        });
+    if (filters?.status) {
+      where.status = filters.status;
     }
 
-    // Admin: get all orders
-    async findAll(filters?: AdminOrderFilters) {
-        const where: Prisma.OrderWhereInput = {};
+    if (filters?.paymentStatus) {
+      where.paymentStatus = filters.paymentStatus;
+    }
 
-        if (filters?.status) {
-            where.status = filters.status;
-        }
-
-        if (filters?.paymentStatus) {
-            where.paymentStatus = filters.paymentStatus;
-        }
-
-        if (filters?.search) {
-            where.OR = [
-                { id: { contains: filters.search, mode: 'insensitive' } },
-                { user: { email: { contains: filters.search, mode: 'insensitive' } } },
-                { user: { name: { contains: filters.search, mode: 'insensitive' } } },
-                { orderItems: { some: { game: { title: { contains: filters.search, mode: 'insensitive' } } } } },
-            ];
-        }
-
-        const include = {
-            user: { select: { email: true, name: true } },
-            orderItems: {
-                include: {
-                    game: { select: { id: true, title: true, platform: true, imageUrl: true } },
-                    cdKey: { select: { keyCode: true } },
-                },
+    if (filters?.search) {
+      where.OR = [
+        { id: { contains: filters.search, mode: 'insensitive' } },
+        { user: { email: { contains: filters.search, mode: 'insensitive' } } },
+        { user: { name: { contains: filters.search, mode: 'insensitive' } } },
+        {
+          orderItems: {
+            some: {
+              game: {
+                title: { contains: filters.search, mode: 'insensitive' },
+              },
             },
-        } satisfies Prisma.OrderInclude;
-
-        const pagination = this.getPagination(filters);
-
-        if (!pagination) {
-            return this.prisma.order.findMany({
-                where,
-                include,
-                orderBy: { createdAt: 'desc' },
-            });
-        }
-
-        const [orders, total] = await this.prisma.$transaction([
-            this.prisma.order.findMany({
-                where,
-                include,
-                orderBy: { createdAt: 'desc' },
-                skip: (pagination.page - 1) * pagination.limit,
-                take: pagination.limit,
-            }),
-            this.prisma.order.count({ where }),
-        ]);
-
-        const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
-
-        return {
-            data: orders,
-            meta: {
-                page: pagination.page,
-                limit: pagination.limit,
-                total,
-                totalPages,
-                hasNext: pagination.page < totalPages,
-                hasPrevious: pagination.page > 1,
-            },
-        };
+          },
+        },
+      ];
     }
 
-    private getPagination(options?: AdminOrderFilters) {
-        if (options?.page === undefined && options?.limit === undefined) {
-            return null;
-        }
+    const include = {
+      user: { select: { email: true, name: true } },
+      orderItems: {
+        include: {
+          game: {
+            select: { id: true, title: true, platform: true, imageUrl: true },
+          },
+          cdKey: { select: { keyCode: true } },
+        },
+      },
+    } satisfies Prisma.OrderInclude;
 
-        const page = Number.isFinite(options?.page) ? Math.max(1, Math.floor(options?.page || 1)) : 1;
-        const limit = Number.isFinite(options?.limit) ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20))) : 20;
+    const pagination = this.getPagination(filters);
 
-        return { page, limit };
+    if (!pagination) {
+      return this.prisma.order.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+      });
     }
 
-    // Admin: get sales stats
-    async getSalesStats() {
-        const [totalSales, totalOrders, recentOrders] = await Promise.all([
-            this.prisma.order.aggregate({
-                where: { status: OrderStatus.COMPLETED },
-                _sum: { total: true },
-                _count: true,
-            }),
-            this.prisma.order.groupBy({
-                by: ['status'],
-                _count: { status: true },
-            }),
-            this.prisma.order.findMany({
-                where: { status: OrderStatus.COMPLETED },
-                take: 10,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: { select: { email: true } },
-                    orderItems: {
-                        include: { game: { select: { title: true } } },
-                    },
-                },
-            }),
-        ]);
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip: (pagination.page - 1) * pagination.limit,
+        take: pagination.limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
 
-        return {
-            totalRevenue: totalSales._sum.total || 0,
-            completedOrders: totalSales._count,
-            ordersByStatus: totalOrders.reduce(
-                (acc, curr) => {
-                    acc[curr.status.toLowerCase()] = curr._count.status;
-                    return acc;
-                },
-                {} as Record<string, number>,
-            ),
-            recentOrders,
-        };
+    const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+
+    return {
+      data: orders,
+      meta: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages,
+        hasNext: pagination.page < totalPages,
+        hasPrevious: pagination.page > 1,
+      },
+    };
+  }
+
+  private getPagination(options?: AdminOrderFilters) {
+    if (options?.page === undefined && options?.limit === undefined) {
+      return null;
     }
+
+    const page = Number.isFinite(options?.page)
+      ? Math.max(1, Math.floor(options?.page || 1))
+      : 1;
+    const limit = Number.isFinite(options?.limit)
+      ? Math.max(1, Math.min(100, Math.floor(options?.limit || 20)))
+      : 20;
+
+    return { page, limit };
+  }
+
+  // Admin: get sales stats
+  async getSalesStats() {
+    const [totalSales, totalOrders, recentOrders] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { status: OrderStatus.COMPLETED },
+        _sum: { total: true },
+        _count: true,
+      }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        _count: { status: true },
+      }),
+      this.prisma.order.findMany({
+        where: { status: OrderStatus.COMPLETED },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { email: true } },
+          orderItems: {
+            include: { game: { select: { title: true } } },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalRevenue: totalSales._sum.total || 0,
+      completedOrders: totalSales._count,
+      ordersByStatus: totalOrders.reduce(
+        (acc, curr) => {
+          acc[curr.status.toLowerCase()] = curr._count.status;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+      recentOrders,
+    };
+  }
 }

@@ -16,7 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentService = void 0;
 const common_1 = require("@nestjs/common");
 const promptpay_qr_1 = __importDefault(require("promptpay-qr"));
-const qrcode_1 = __importDefault(require("qrcode"));
+const qrcode_1 = require("qrcode");
 const prisma_service_1 = require("../prisma/prisma.service");
 const slipok_service_1 = require("./slipok.service");
 const email_service_1 = require("../email/email.service");
@@ -30,10 +30,10 @@ let PaymentService = PaymentService_1 = class PaymentService {
         this.slipOkService = slipOkService;
         this.emailService = emailService;
     }
-    async generatePromptPayQR(amount, orderId) {
+    async generatePromptPayQR(amount) {
         const promptpayId = process.env.PROMPTPAY_ID || '1409600385453';
         const payload = (0, promptpay_qr_1.default)(promptpayId, { amount });
-        const qrCodeDataUrl = await qrcode_1.default.toDataURL(payload);
+        const qrCodeDataUrl = await (0, qrcode_1.toDataURL)(payload);
         return qrCodeDataUrl;
     }
     async uploadPaymentSlip(orderId, userId, slipUrl) {
@@ -111,7 +111,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
             },
         });
         if (order && order.user && this.emailService.isConfigured()) {
-            const items = order.orderItems.map(item => ({
+            const items = order.orderItems.map((item) => ({
                 gameTitle: item.game.title,
                 platform: item.game.platform,
             }));
@@ -185,8 +185,8 @@ let PaymentService = PaymentService_1 = class PaymentService {
             return;
         }
         const emailItems = completedOrder.orderItems
-            .filter(item => item.cdKey)
-            .map(item => ({
+            .filter((item) => item.cdKey)
+            .map((item) => ({
             gameTitle: item.game.title,
             platform: item.game.platform,
             cdKey: item.cdKey.keyCode,

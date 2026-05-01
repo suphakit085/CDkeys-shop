@@ -1,435 +1,579 @@
 /* eslint-disable @next/next/no-img-element -- Admin previews render local uploads and admin-provided image URLs. */
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_URL, BACKEND_URL } from '@/lib/config';
+import { API_URL, BACKEND_URL, getUploadUrl } from '@/lib/config';
+import {
+  AdminAccessRequired,
+  AdminEmpty,
+  AdminNotice,
+  AdminPageSkeleton,
+  AdminPanel,
+  AdminShell,
+  AdminStatCard,
+  cx,
+} from '@/components/admin/AdminUI';
 
 interface Banner {
-    id: string;
-    title: string;
-    subtitle: string | null;
-    description: string | null;
-    imageUrl: string | null;
-    bgColor: string;
-    link: string;
-    buttonText: string;
-    isActive: boolean;
-    order: number;
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  bgColor: string;
+  link: string;
+  buttonText: string;
+  isActive: boolean;
+  order: number;
 }
 
 const defaultBgColors = [
-    { name: 'Purple/Pink', value: 'from-purple-600 via-pink-600 to-red-500' },
-    { name: 'Blue/Indigo', value: 'from-cyan-600 via-blue-600 to-indigo-600' },
-    { name: 'Green/Teal', value: 'from-green-600 via-teal-600 to-cyan-600' },
-    { name: 'Orange/Red', value: 'from-orange-600 via-red-600 to-pink-600' },
-    { name: 'Indigo/Purple', value: 'from-indigo-600 via-purple-600 to-pink-500' },
+  { name: 'Teal / Blue', value: 'from-teal-500 via-cyan-600 to-blue-700' },
+  { name: 'Indigo / Violet', value: 'from-indigo-600 via-violet-600 to-purple-700' },
+  { name: 'Amber / Rose', value: 'from-amber-500 via-orange-600 to-rose-700' },
+  { name: 'Green / Slate', value: 'from-emerald-500 via-teal-700 to-slate-900' },
+  { name: 'Neutral / Silver', value: 'from-slate-600 via-slate-800 to-zinc-950' },
 ];
 
+const defaultBanner = {
+  title: '',
+  subtitle: '',
+  description: '',
+  imageUrl: '',
+  bgColor: defaultBgColors[0].value,
+  link: '/store',
+  buttonText: 'Shop now',
+  isActive: true,
+  order: 0,
+};
+
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { message?: string };
+    return data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeUploadedUrl(url: string) {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `${BACKEND_URL}${url}`;
+}
+
 export default function AdminBannersPage() {
-    const { user } = useAuth();
-    const [banners, setBanners] = useState<Banner[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+  const { token, isAdmin, isLoading: authLoading } = useAuth();
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-    // Form state
-    const [title, setTitle] = useState('');
-    const [subtitle, setSubtitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
-    const [bgColor, setBgColor] = useState(defaultBgColors[0].value);
-    const [link, setLink] = useState('/store');
-    const [buttonText, setButtonText] = useState('SHOP NOW');
-    const [isActive, setIsActive] = useState(true);
-    const [order, setOrder] = useState(0);
-    const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState(defaultBanner.title);
+  const [subtitle, setSubtitle] = useState(defaultBanner.subtitle);
+  const [description, setDescription] = useState(defaultBanner.description);
+  const [imageUrl, setImageUrl] = useState(defaultBanner.imageUrl);
+  const [bgColor, setBgColor] = useState(defaultBanner.bgColor);
+  const [link, setLink] = useState(defaultBanner.link);
+  const [buttonText, setButtonText] = useState(defaultBanner.buttonText);
+  const [isActive, setIsActive] = useState(defaultBanner.isActive);
+  const [order, setOrder] = useState(defaultBanner.order);
 
-    useEffect(() => {
-        loadBanners();
-    }, []);
+  const activeCount = banners.filter((banner) => banner.isActive).length;
+  const nextOrder = banners.reduce((max, banner) => Math.max(max, banner.order), -1) + 1;
+  const imagePreview = imageUrl ? getUploadUrl(imageUrl) : '';
 
-    const loadBanners = async () => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_URL}/banners/admin`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await response.json();
-            setBanners(data);
-        } catch {
-            setError('ไม่สามารถโหลดข้อมูลแบนเนอร์ได้');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const loadBanners = useCallback(async () => {
+    if (!token) return;
+    setIsLoading(true);
+    setError('');
 
-    const resetForm = () => {
-        setTitle('');
-        setSubtitle('');
-        setDescription('');
-        setImageUrl('');
-        setBgColor(defaultBgColors[0].value);
-        setLink('/store');
-        setButtonText('SHOP NOW');
-        setIsActive(true);
-        setOrder(0);
-        setEditingBanner(null);
-    };
+    try {
+      const response = await fetch(`${API_URL}/banners/admin`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const handleEdit = (banner: Banner) => {
-        setEditingBanner(banner);
-        setTitle(banner.title);
-        setSubtitle(banner.subtitle || '');
-        setDescription(banner.description || '');
-        setImageUrl(banner.imageUrl || '');
-        setBgColor(banner.bgColor);
-        setLink(banner.link);
-        setButtonText(banner.buttonText);
-        setIsActive(banner.isActive);
-        setOrder(banner.order);
-        setShowForm(true);
-    };
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Unable to load banners'));
+      }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
+      const data = (await response.json()) as Banner[];
+      setBanners(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load banners');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
 
-        try {
-            const token = localStorage.getItem('accessToken');
-            const url = editingBanner
-                ? `${API_URL}/banners/${editingBanner.id}`
-                : `${API_URL}/banners`;
+  useEffect(() => {
+    if (!authLoading && isAdmin) {
+      loadBanners();
+    }
+  }, [authLoading, isAdmin, loadBanners]);
 
-            const response = await fetch(url, {
-                method: editingBanner ? 'PUT' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    title,
-                    subtitle: subtitle || null,
-                    description: description || null,
-                    imageUrl: imageUrl || null,
-                    bgColor,
-                    link,
-                    buttonText,
-                    isActive,
-                    order,
-                }),
-            });
+  const resetForm = useCallback(() => {
+    setTitle(defaultBanner.title);
+    setSubtitle(defaultBanner.subtitle);
+    setDescription(defaultBanner.description);
+    setImageUrl(defaultBanner.imageUrl);
+    setBgColor(defaultBanner.bgColor);
+    setLink(defaultBanner.link);
+    setButtonText(defaultBanner.buttonText);
+    setIsActive(defaultBanner.isActive);
+    setOrder(nextOrder);
+    setEditingBanner(null);
+  }, [nextOrder]);
 
-            if (response.ok) {
-                setSuccess(editingBanner ? 'อัพเดทแบนเนอร์สำเร็จ!' : 'สร้างแบนเนอร์สำเร็จ!');
+  const openCreateForm = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const handleEdit = (banner: Banner) => {
+    setEditingBanner(banner);
+    setTitle(banner.title);
+    setSubtitle(banner.subtitle || '');
+    setDescription(banner.description || '');
+    setImageUrl(banner.imageUrl || '');
+    setBgColor(banner.bgColor);
+    setLink(banner.link);
+    setButtonText(banner.buttonText);
+    setIsActive(banner.isActive);
+    setOrder(banner.order);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+
+    setError('');
+    setSuccess('');
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(
+        editingBanner ? `${API_URL}/banners/${editingBanner.id}` : `${API_URL}/banners`,
+        {
+          method: editingBanner ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title,
+            subtitle: subtitle || null,
+            description: description || null,
+            imageUrl: imageUrl || null,
+            bgColor,
+            link,
+            buttonText,
+            isActive,
+            order,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Unable to save banner'));
+      }
+
+      setSuccess(editingBanner ? 'Banner updated.' : 'Banner created.');
+      setShowForm(false);
+      resetForm();
+      await loadBanners();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save banner');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!token || !window.confirm('Delete this banner?')) return;
+
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch(`${API_URL}/banners/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Unable to delete banner'));
+      }
+
+      setSuccess('Banner deleted.');
+      await loadBanners();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to delete banner');
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !token) return;
+
+    setUploading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${API_URL}/banners/upload-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Image upload failed'));
+      }
+
+      const data = (await response.json()) as { url: string };
+      setImageUrl(normalizeUploadedUrl(data.url));
+      setSuccess('Image uploaded. Save the banner to publish it.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Image upload failed');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  if (authLoading) {
+    return <AdminPageSkeleton rows={3} />;
+  }
+
+  if (!isAdmin) {
+    return <AdminAccessRequired />;
+  }
+
+  if (isLoading) {
+    return <AdminPageSkeleton rows={3} />;
+  }
+
+  return (
+    <AdminShell
+      title="Homepage Banners"
+      description="Manage storefront hero promotions, campaign copy, images, and display order."
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={loadBanners}
+            className="btn-secondary px-4"
+            disabled={isSaving || uploading}
+          >
+            Refresh
+          </button>
+          <button type="button" onClick={openCreateForm} className="btn-primary px-4">
+            Add banner
+          </button>
+        </>
+      }
+    >
+      {error && <AdminNotice tone="error">{error}</AdminNotice>}
+      {success && <AdminNotice tone="success">{success}</AdminNotice>}
+
+      <section className="admin-stat-grid">
+        <AdminStatCard label="Total banners" value={banners.length} helper="All campaigns" />
+        <AdminStatCard label="Active" value={activeCount} helper="Shown on homepage" tone="green" />
+        <AdminStatCard
+          label="Inactive"
+          value={banners.length - activeCount}
+          helper="Hidden from customers"
+          tone="amber"
+        />
+        <AdminStatCard label="Next order" value={nextOrder} helper="Suggested sort value" tone="blue" />
+      </section>
+
+      {showForm && (
+        <AdminPanel
+          title={editingBanner ? 'Edit banner' : 'New banner'}
+          description="Use focused campaign copy and a clear destination link."
+          actions={
+            <button
+              type="button"
+              onClick={() => {
                 resetForm();
                 setShowForm(false);
-                loadBanners();
-            } else {
-                const data = await response.json();
-                setError(data.message || 'เกิดข้อผิดพลาด');
-            }
-        } catch {
-            setError('ไม่สามารถบันทึกข้อมูลได้');
-        }
-    };
+              }}
+              className="btn-secondary px-4"
+            >
+              Close
+            </button>
+          }
+        >
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="space-y-5">
+                <div className="admin-form-grid">
+                  <label>
+                    <span className="admin-field-label">Title</span>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      className="input"
+                      required
+                      placeholder="Winter Sale"
+                    />
+                  </label>
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('ยืนยันการลบแบนเนอร์นี้?')) return;
-
-        try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_URL}/banners/${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (response.ok) {
-                setSuccess('ลบแบนเนอร์สำเร็จ!');
-                loadBanners();
-            } else {
-                setError('ไม่สามารถลบแบนเนอร์ได้');
-            }
-        } catch {
-            setError('เกิดข้อผิดพลาด');
-        }
-    };
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploading(true);
-        try {
-            const token = localStorage.getItem('accessToken');
-            const formData = new FormData();
-            formData.append('image', file);
-
-            const response = await fetch(`${API_URL}/banners/upload-image`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setImageUrl(`${BACKEND_URL}${data.url}`);
-            } else {
-                setError('อัพโหลดรูปภาพไม่สำเร็จ');
-            }
-        } catch {
-            setError('เกิดข้อผิดพลาดในการอัพโหลด');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    if (!user || user?.role !== 'ADMIN') {
-        return (
-            <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-                <h1 className="text-2xl font-bold text-red-500">Admin Access Required</h1>
-                <Link href="/login" className="btn-primary mt-4 inline-block">
-                    เข้าสู่ระบบ
-                </Link>
-            </div>
-        );
-    }
-
-    return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-purple-400">🎠 จัดการแบนเนอร์</h1>
-                    <p className="text-gray-400 mt-1">สร้างและแก้ไขแบนเนอร์สำหรับหน้าแรก</p>
+                  <label>
+                    <span className="admin-field-label">Subtitle</span>
+                    <input
+                      type="text"
+                      value={subtitle}
+                      onChange={(event) => setSubtitle(event.target.value)}
+                      className="input"
+                      placeholder="Digital game keys"
+                    />
+                  </label>
                 </div>
-                <div className="flex gap-3">
-                    <Link href="/admin" className="btn-secondary py-2 px-4">
-                        ← กลับ
-                    </Link>
-                    <button
-                        onClick={() => { resetForm(); setShowForm(!showForm); }}
-                        className="btn-primary py-2 px-4"
+
+                <label>
+                  <span className="admin-field-label">Description</span>
+                  <textarea
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    className="input min-h-[105px]"
+                    placeholder="Short campaign description for the homepage hero."
+                  />
+                </label>
+
+                <div className="admin-form-grid">
+                  <label>
+                    <span className="admin-field-label">Destination link</span>
+                    <input
+                      type="text"
+                      value={link}
+                      onChange={(event) => setLink(event.target.value)}
+                      className="input"
+                      placeholder="/store"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="admin-field-label">Button text</span>
+                    <input
+                      type="text"
+                      value={buttonText}
+                      onChange={(event) => setButtonText(event.target.value)}
+                      className="input"
+                      placeholder="Shop now"
+                    />
+                  </label>
+                </div>
+
+                <div className="admin-form-grid">
+                  <label>
+                    <span className="admin-field-label">Sort order</span>
+                    <input
+                      type="number"
+                      value={order}
+                      onChange={(event) => setOrder(parseInt(event.target.value, 10) || 0)}
+                      className="input"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="admin-field-label">Gradient fallback</span>
+                    <select
+                      value={bgColor}
+                      onChange={(event) => setBgColor(event.target.value)}
+                      className="input"
                     >
-                        {showForm ? '✕ ปิด' : '+ เพิ่มแบนเนอร์'}
-                    </button>
+                      {defaultBgColors.map((color) => (
+                        <option key={color.value} value={color.value}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
+
+                <label>
+                  <span className="admin-field-label">Image URL</span>
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(event) => setImageUrl(event.target.value)}
+                    className="input"
+                    placeholder="https://... or /uploads/banner.jpg"
+                  />
+                </label>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="btn-secondary cursor-pointer px-4">
+                    {uploading ? 'Uploading...' : 'Upload image'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploading}
+                    />
+                  </label>
+
+                  <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--foreground)]">
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={(event) => setIsActive(event.target.checked)}
+                      className="h-4 w-4 accent-teal-400"
+                    />
+                    Active on homepage
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <span className="admin-field-label">Live preview</span>
+                <div
+                  className={cx(
+                    'relative aspect-[16/10] overflow-hidden rounded-lg border border-[color:var(--border)] bg-gradient-to-r p-5 text-white',
+                    bgColor,
+                  )}
+                >
+                  {imagePreview && (
+                    <img
+                      src={imagePreview}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-black/45" />
+                  <div className="relative z-10 flex h-full flex-col justify-end">
+                    <p className="text-xs font-black uppercase text-teal-200">
+                      {subtitle || 'Campaign'}
+                    </p>
+                    <h3 className="mt-2 line-clamp-2 text-2xl font-black">
+                      {title || 'Banner title'}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm text-white/78">
+                      {description || 'Short campaign description appears here.'}
+                    </p>
+                    <span className="mt-4 inline-flex h-10 w-fit items-center rounded-lg bg-teal-300 px-4 text-sm font-black text-slate-950">
+                      {buttonText || 'Shop now'}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {error && (
-                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-red-400">
-                    {error}
+            <div className="admin-button-row">
+              <button
+                type="submit"
+                disabled={isSaving || uploading}
+                className="btn-primary px-6 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : editingBanner ? 'Save banner' : 'Create banner'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+                className="btn-secondary px-6"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminPanel>
+      )}
+
+      {banners.length === 0 ? (
+        <AdminEmpty
+          title="No banners yet"
+          description="Create a homepage banner to highlight promotions and featured games."
+          action={
+            <button type="button" onClick={openCreateForm} className="btn-primary px-5">
+              Add banner
+            </button>
+          }
+        />
+      ) : (
+        <section className="admin-banner-grid">
+          {banners.map((banner) => (
+            <article key={banner.id} className="admin-item-card">
+              <div
+                className={cx(
+                  'relative aspect-[16/8] overflow-hidden bg-gradient-to-r',
+                  banner.bgColor,
+                )}
+              >
+                {banner.imageUrl ? (
+                  <img
+                    src={getUploadUrl(banner.imageUrl)}
+                    alt={banner.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center px-4 text-center text-sm font-black text-white">
+                    {banner.title}
+                  </div>
+                )}
+                <div className="absolute left-3 top-3">
+                  <span className={cx('badge', banner.isActive ? 'badge-available' : 'badge-reserved')}>
+                    {banner.isActive ? 'Active' : 'Hidden'}
+                  </span>
                 </div>
-            )}
+              </div>
 
-            {success && (
-                <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-4 mb-6 text-green-400">
-                    {success}
+              <div className="admin-item-card-body">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-2 text-lg font-black text-[color:var(--foreground)]">
+                      {banner.title}
+                    </h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-[color:var(--text-muted)]">
+                      {banner.subtitle || banner.description || 'No supporting copy'}
+                    </p>
+                  </div>
+                  <span className="badge badge-epic">#{banner.order}</span>
                 </div>
-            )}
 
-            {/* Form */}
-            {showForm && (
-                <div className="glass-card p-6 mb-8">
-                    <h2 className="text-xl font-bold mb-4">
-                        {editingBanner ? '✏️ แก้ไขแบนเนอร์' : '➕ เพิ่มแบนเนอร์ใหม่'}
-                    </h2>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">หัวข้อ *</label>
-                                <input
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    className="input"
-                                    required
-                                    placeholder="เช่น 🎄 CHRISTMAS SALE"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">หัวข้อย่อย</label>
-                                <input
-                                    type="text"
-                                    value={subtitle}
-                                    onChange={(e) => setSubtitle(e.target.value)}
-                                    className="input"
-                                    placeholder="เช่น ลดสูงสุด 80%"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">รายละเอียด</label>
-                            <textarea
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="input h-20"
-                                placeholder="คำอธิบายเพิ่มเติม"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">รูปภาพ</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={imageUrl}
-                                        onChange={(e) => setImageUrl(e.target.value)}
-                                        className="input flex-1"
-                                        placeholder="URL รูปภาพ หรืออัพโหลด"
-                                    />
-                                    <label className="btn-secondary py-2 px-4 cursor-pointer">
-                                        {uploading ? '...' : '📤'}
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageUpload}
-                                            className="hidden"
-                                        />
-                                    </label>
-                                </div>
-                                {imageUrl && (
-                                    <img src={imageUrl} alt="Preview" className="mt-2 h-20 rounded-lg object-cover" />
-                                )}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">สีพื้นหลัง</label>
-                                <select
-                                    value={bgColor}
-                                    onChange={(e) => setBgColor(e.target.value)}
-                                    className="input"
-                                >
-                                    {defaultBgColors.map((color) => (
-                                        <option key={color.value} value={color.value} className="bg-gray-900">
-                                            {color.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">ลิงก์</label>
-                                <input
-                                    type="text"
-                                    value={link}
-                                    onChange={(e) => setLink(e.target.value)}
-                                    className="input"
-                                    placeholder="/store"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">ข้อความปุ่ม</label>
-                                <input
-                                    type="text"
-                                    value={buttonText}
-                                    onChange={(e) => setButtonText(e.target.value)}
-                                    className="input"
-                                    placeholder="SHOP NOW"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">ลำดับ</label>
-                                <input
-                                    type="number"
-                                    value={order}
-                                    onChange={(e) => setOrder(parseInt(e.target.value) || 0)}
-                                    className="input"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={isActive}
-                                    onChange={(e) => setIsActive(e.target.checked)}
-                                    className="w-5 h-5 accent-purple-500"
-                                />
-                                <span className="text-gray-300">เปิดใช้งาน</span>
-                            </label>
-                        </div>
-
-                        <div className="flex gap-3 pt-4">
-                            <button type="submit" className="btn-primary py-2 px-6">
-                                {editingBanner ? '💾 บันทึก' : '➕ สร้าง'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { resetForm(); setShowForm(false); }}
-                                className="btn-secondary py-2 px-6"
-                            >
-                                ยกเลิก
-                            </button>
-                        </div>
-                    </form>
+                <div className="admin-meta-row mb-4">
+                  <span className="truncate">{banner.link}</span>
+                  <span>{banner.buttonText}</span>
                 </div>
-            )}
 
-            {/* Banner List */}
-            {isLoading ? (
-                <div className="text-center py-10">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+                <div className="admin-button-row">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(banner)}
+                    className="btn-secondary flex-1 px-4"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(banner.id)}
+                    className="admin-danger-button flex-1 px-4"
+                  >
+                    Delete
+                  </button>
                 </div>
-            ) : banners.length === 0 ? (
-                <div className="text-center py-20 glass-card">
-                    <div className="text-6xl mb-4">🎠</div>
-                    <h3 className="text-xl font-bold text-gray-300 mb-2">ยังไม่มีแบนเนอร์</h3>
-                    <p className="text-gray-500">กดปุ่ม &quot;+ เพิ่มแบนเนอร์&quot; เพื่อเริ่มต้น</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {banners.map((banner) => (
-                        <div key={banner.id} className="glass-card p-4 flex items-center gap-4">
-                            {/* Preview */}
-                            <div
-                                className={`w-40 h-24 rounded-lg bg-gradient-to-r ${banner.bgColor} flex items-center justify-center text-white text-xs font-bold text-center p-2 flex-shrink-0`}
-                            >
-                                {banner.imageUrl ? (
-                                    <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover rounded-lg" />
-                                ) : (
-                                    banner.title
-                                )}
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-white">{banner.title}</h3>
-                                    {!banner.isActive && (
-                                        <span className="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded">ปิดใช้งาน</span>
-                                    )}
-                                </div>
-                                {banner.subtitle && <p className="text-gray-400 text-sm">{banner.subtitle}</p>}
-                                <p className="text-gray-500 text-xs mt-1">ลำดับ: {banner.order} | ลิงก์: {banner.link}</p>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleEdit(banner)}
-                                    className="btn-secondary py-2 px-4 text-sm"
-                                >
-                                    ✏️ แก้ไข
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(banner.id)}
-                                    className="bg-red-600/20 border border-red-600/50 text-red-400 py-2 px-4 rounded-lg text-sm hover:bg-red-600/30"
-                                >
-                                    🗑️ ลบ
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+    </AdminShell>
+  );
 }
