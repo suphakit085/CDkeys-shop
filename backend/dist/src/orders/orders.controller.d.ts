@@ -22,14 +22,16 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: import("@prisma/client/runtime/library").Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -38,8 +40,6 @@ export declare class OrdersController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     findAll(page?: string, limit?: string, search?: string, status?: string, paymentStatus?: string): Promise<({
         user: {
@@ -60,14 +60,16 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: import("@prisma/client/runtime/library").Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -76,8 +78,6 @@ export declare class OrdersController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[] | {
         data: ({
             user: {
@@ -98,14 +98,16 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: import("@prisma/client/runtime/library").Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -114,8 +116,6 @@ export declare class OrdersController {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         })[];
         meta: {
             page: number;
@@ -142,14 +142,16 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: import("@prisma/client/runtime/library").Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -158,8 +160,6 @@ export declare class OrdersController {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         })[];
     }>;
     findOne(id: string, req: {
@@ -181,14 +181,16 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: import("@prisma/client/runtime/library").Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -197,8 +199,6 @@ export declare class OrdersController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     createOrder(dto: CreateOrderDto, req: {
         user: {
@@ -214,14 +214,16 @@ export declare class OrdersController {
             id: string;
             createdAt: Date;
             price: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: import("@prisma/client/runtime/library").Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -230,8 +232,6 @@ export declare class OrdersController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     processPayment(dto: ProcessPaymentDto, req: {
         user: {
@@ -258,14 +258,16 @@ export declare class OrdersController {
                 id: string;
                 createdAt: Date;
                 price: import("@prisma/client/runtime/library").Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: import("@prisma/client/runtime/library").Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -274,8 +276,6 @@ export declare class OrdersController {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     cancelOrder(id: string, req: {
@@ -284,9 +284,11 @@ export declare class OrdersController {
         };
     }): Promise<{
         id: string;
-        userId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: import("@prisma/client/runtime/library").Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -295,8 +297,6 @@ export declare class OrdersController {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     private parsePositiveInt;
     private parseOrderStatus;

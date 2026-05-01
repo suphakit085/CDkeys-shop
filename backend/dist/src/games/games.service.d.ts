@@ -16,6 +16,8 @@ export declare class GamesService {
         availableKeys: number;
         _count: undefined;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
         description: string | null;
         platform: import("@prisma/client").$Enums.Platform;
@@ -33,13 +35,13 @@ export declare class GamesService {
         activationRegion: string | null;
         ageRating: string | null;
         screenshots: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }[] | {
         data: {
             availableKeys: number;
             _count: undefined;
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             title: string;
             description: string | null;
             platform: import("@prisma/client").$Enums.Platform;
@@ -57,8 +59,6 @@ export declare class GamesService {
             activationRegion: string | null;
             ageRating: string | null;
             screenshots: string[];
-            createdAt: Date;
-            updatedAt: Date;
         }[];
         meta: {
             page: number;
@@ -74,6 +74,8 @@ export declare class GamesService {
         availableKeys: number;
         _count: undefined;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
         description: string | null;
         platform: import("@prisma/client").$Enums.Platform;
@@ -91,11 +93,11 @@ export declare class GamesService {
         activationRegion: string | null;
         ageRating: string | null;
         screenshots: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     create(dto: CreateGameDto): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
         description: string | null;
         platform: import("@prisma/client").$Enums.Platform;
@@ -113,11 +115,11 @@ export declare class GamesService {
         activationRegion: string | null;
         ageRating: string | null;
         screenshots: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     update(id: string, dto: UpdateGameDto): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
         description: string | null;
         platform: import("@prisma/client").$Enums.Platform;
@@ -135,11 +137,11 @@ export declare class GamesService {
         activationRegion: string | null;
         ageRating: string | null;
         screenshots: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     delete(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
         description: string | null;
         platform: import("@prisma/client").$Enums.Platform;
@@ -157,8 +159,6 @@ export declare class GamesService {
         activationRegion: string | null;
         ageRating: string | null;
         screenshots: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getGenres(): Promise<string[]>;
 }

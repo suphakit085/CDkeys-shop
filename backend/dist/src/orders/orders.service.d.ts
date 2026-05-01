@@ -30,14 +30,16 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: Prisma.Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -46,8 +48,6 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     findOne(orderId: string, userId: string): Promise<{
         orderItems: ({
@@ -64,14 +64,16 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: Prisma.Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -80,8 +82,6 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     createOrder(userId: string, dto: CreateOrderDto): Promise<{
         orderItems: ({
@@ -93,14 +93,16 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: Prisma.Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -109,8 +111,6 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     processPayment(orderId: string, userId: string, simulateFail?: boolean): Promise<{
         success: boolean;
@@ -133,14 +133,16 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: Prisma.Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: Prisma.Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -149,15 +151,15 @@ export declare class OrdersService {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     cancelOrder(orderId: string, userId: string): Promise<{
         id: string;
-        userId: string;
-        total: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: Prisma.Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -166,8 +168,6 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     findAll(filters?: AdminOrderFilters): Promise<({
         user: {
@@ -188,14 +188,16 @@ export declare class OrdersService {
             id: string;
             createdAt: Date;
             price: Prisma.Decimal;
-            orderId: string;
             gameId: string;
+            orderId: string;
         })[];
     } & {
         id: string;
-        userId: string;
-        total: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.OrderStatus;
+        total: Prisma.Decimal;
+        userId: string;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
         paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
         paymentSlipUrl: string | null;
@@ -204,8 +206,6 @@ export declare class OrdersService {
         paidAt: Date | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[] | {
         data: ({
             user: {
@@ -226,14 +226,16 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: Prisma.Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: Prisma.Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -242,8 +244,6 @@ export declare class OrdersService {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         })[];
         meta: {
             page: number;
@@ -271,14 +271,16 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 price: Prisma.Decimal;
-                orderId: string;
                 gameId: string;
+                orderId: string;
             })[];
         } & {
             id: string;
-            userId: string;
-            total: Prisma.Decimal;
+            createdAt: Date;
+            updatedAt: Date;
             status: import("@prisma/client").$Enums.OrderStatus;
+            total: Prisma.Decimal;
+            userId: string;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
             paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
             paymentSlipUrl: string | null;
@@ -287,8 +289,6 @@ export declare class OrdersService {
             paidAt: Date | null;
             verifiedBy: string | null;
             verifiedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         })[];
     }>;
 }

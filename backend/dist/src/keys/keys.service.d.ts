@@ -21,8 +21,8 @@ export declare class KeysService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.KeyStatus;
         gameId: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
         reservedAt: Date | null;
         orderItemId: string | null;
@@ -37,8 +37,8 @@ export declare class KeysService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.KeyStatus;
         gameId: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
         reservedAt: Date | null;
         orderItemId: string | null;
@@ -47,8 +47,8 @@ export declare class KeysService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.KeyStatus;
         gameId: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
         reservedAt: Date | null;
         orderItemId: string | null;
@@ -57,8 +57,8 @@ export declare class KeysService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.KeyStatus;
         gameId: string;
+        status: import("@prisma/client").$Enums.KeyStatus;
         keyCode: string;
         reservedAt: Date | null;
         orderItemId: string | null;
