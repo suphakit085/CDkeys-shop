@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { GamesService } from './games.service';
+import { GameMetadataService } from './game-metadata.service';
 import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -18,7 +19,10 @@ import { Role, Platform } from '@prisma/client';
 
 @Controller('games')
 export class GamesController {
-  constructor(private gamesService: GamesService) {}
+  constructor(
+    private gamesService: GamesService,
+    private gameMetadataService: GameMetadataService,
+  ) {}
 
   @Get()
   async findAll(
@@ -53,6 +57,26 @@ export class GamesController {
   @Get('genres')
   async getGenres() {
     return this.gamesService.getGenres();
+  }
+
+  @Get('import/search')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async searchImportCandidates(
+    @Query('query') query = '',
+    @Query('limit') limit?: string,
+  ) {
+    return this.gameMetadataService.searchRawgGames(
+      query,
+      this.parsePositiveInt(limit) || 8,
+    );
+  }
+
+  @Get('import/rawg/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getRawgImport(@Param('id') id: string) {
+    return this.gameMetadataService.getRawgGame(id);
   }
 
   @Get(':id')

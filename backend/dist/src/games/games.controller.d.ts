@@ -1,9 +1,11 @@
 import { GamesService } from './games.service';
+import { GameMetadataService } from './game-metadata.service';
 import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
 import { Platform } from '@prisma/client';
 export declare class GamesController {
     private gamesService;
-    constructor(gamesService: GamesService);
+    private gameMetadataService;
+    constructor(gamesService: GamesService, gameMetadataService: GameMetadataService);
     findAll(platform?: Platform, genre?: string, minPrice?: string, maxPrice?: string, search?: string, page?: string, limit?: string): Promise<{
         availableKeys: number;
         _count: undefined;
@@ -63,6 +65,8 @@ export declare class GamesController {
     }>;
     private parsePositiveInt;
     getGenres(): Promise<string[]>;
+    searchImportCandidates(query?: string, limit?: string): Promise<import("./game-metadata.service").GameMetadataSearchResult[]>;
+    getRawgImport(id: string): Promise<import("./game-metadata.service").GameMetadataImport>;
     findOne(id: string): Promise<{
         availableKeys: number;
         _count: undefined;

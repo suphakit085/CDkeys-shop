@@ -3,7 +3,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { gamesApi, Game, Platform, CreateGameDto, PaginationMeta } from '@/lib/api';
+import {
+  gamesApi,
+  Game,
+  Platform,
+  CreateGameDto,
+  PaginationMeta,
+  GameMetadataSearchResult,
+} from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL, getUploadUrl } from '@/lib/config';
 import { formatMoney } from '@/lib/currency';
@@ -63,6 +70,12 @@ export default function AdminGames() {
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState<CreateGameDto>(emptyForm);
+  const [importQuery, setImportQuery] = useState('');
+  const [importResults, setImportResults] = useState<GameMetadataSearchResult[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importingId, setImportingId] = useState<string | null>(null);
+  const [importError, setImportError] = useState('');
+  const [importNotice, setImportNotice] = useState('');
 
   const loadGames = useCallback(async () => {
     setIsLoading(true);
@@ -95,6 +108,93 @@ export default function AdminGames() {
     setShowForm(false);
     setEditingGame(null);
     setFormData(emptyForm);
+    setImportQuery('');
+    setImportResults([]);
+    setImportError('');
+    setImportNotice('');
+  };
+
+  const searchImportCandidates = async () => {
+    if (!token) return;
+
+    const query = importQuery.trim();
+    if (query.length < 2) {
+      setImportError('Enter at least 2 characters to search game metadata.');
+      return;
+    }
+
+    setImporting(true);
+    setImportError('');
+    setImportNotice('');
+
+    try {
+      const results = await gamesApi.searchImportCandidates(query, token);
+      setImportResults(results);
+      if (results.length === 0) {
+        setImportError('No matching games found. Try another title or Steam name.');
+      }
+    } catch (error) {
+      console.error('Failed to search game metadata:', error);
+      setImportError(
+        error instanceof Error ? error.message : 'Unable to search game metadata',
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const applyImportCandidate = async (candidate: GameMetadataSearchResult) => {
+    if (!token) return;
+
+    setImportingId(candidate.sourceId);
+    setImportError('');
+    setImportNotice('');
+
+    try {
+      const metadata = await gamesApi.getRawgImport(candidate.sourceId, token);
+      setFormData((current) => ({
+        ...current,
+        title: metadata.title || current.title,
+        description: metadata.description || current.description,
+        platform: metadata.platform || current.platform,
+        genre: metadata.genre || current.genre,
+        imageUrl: metadata.imageUrl || current.imageUrl,
+        developer: metadata.developer || current.developer,
+        publisher: metadata.publisher || current.publisher,
+        releaseDate: metadata.releaseDate || current.releaseDate,
+        systemRequirements:
+          metadata.systemRequirements || current.systemRequirements,
+        minimumSystemRequirements:
+          metadata.minimumSystemRequirements ||
+          current.minimumSystemRequirements,
+        recommendedSystemRequirements:
+          metadata.recommendedSystemRequirements ||
+          current.recommendedSystemRequirements,
+        features:
+          metadata.features.length > 0 ? metadata.features : current.features,
+        supportedLanguages:
+          metadata.supportedLanguages.length > 0
+            ? metadata.supportedLanguages
+            : current.supportedLanguages,
+        activationRegion:
+          metadata.activationRegion || current.activationRegion || 'Global',
+        ageRating: metadata.ageRating || current.ageRating,
+        screenshots:
+          metadata.screenshots.length > 0
+            ? metadata.screenshots
+            : current.screenshots,
+      }));
+      setImportNotice(
+        `Imported ${metadata.title}. Review platform, price, region, and keys before saving.`,
+      );
+    } catch (error) {
+      console.error('Failed to import game metadata:', error);
+      setImportError(
+        error instanceof Error ? error.message : 'Unable to import game metadata',
+      );
+    } finally {
+      setImportingId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,6 +243,10 @@ export default function AdminGames() {
 
   const startEdit = (game: Game) => {
     setEditingGame(game);
+    setImportQuery('');
+    setImportResults([]);
+    setImportError('');
+    setImportNotice('');
     setFormData({
       title: game.title,
       description: game.description || '',
@@ -223,6 +327,109 @@ export default function AdminGames() {
           description="Keep product information complete so the store page feels trustworthy."
         >
           <form onSubmit={handleSubmit} className="space-y-5">
+            {!editingGame && (
+              <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="admin-eyebrow">Import metadata</p>
+                    <h3 className="text-base font-black text-[color:var(--foreground)]">
+                      Search RAWG and fill this form
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                      Pull game artwork, description, publisher, screenshots, and system requirements.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 lg:flex-row">
+                  <input
+                    type="search"
+                    value={importQuery}
+                    onChange={(e) => setImportQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void searchImportCandidates();
+                      }
+                    }}
+                    className="input"
+                    placeholder="Try Elden Ring, Hogwarts Legacy, Cyberpunk"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void searchImportCandidates()}
+                    disabled={importing}
+                    className="btn-secondary px-5 lg:w-44"
+                  >
+                    {importing ? 'Searching...' : 'Search'}
+                  </button>
+                </div>
+
+                {importError && (
+                  <p className="mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm font-semibold text-[color:var(--error)]">
+                    {importError}
+                  </p>
+                )}
+
+                {importNotice && (
+                  <p className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-[color:var(--success)]">
+                    {importNotice}
+                  </p>
+                )}
+
+                {importResults.length > 0 && (
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {importResults.map((candidate) => (
+                      <article
+                        key={candidate.sourceId}
+                        className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+                      >
+                        <div className="aspect-[16/9] bg-[color:var(--surface-solid)]">
+                          {candidate.imageUrl ? (
+                            <img
+                              src={getUploadUrl(candidate.imageUrl)}
+                              alt={candidate.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="grid h-full place-items-center text-sm font-bold text-[color:var(--text-muted)]">
+                              No image
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-3 p-3">
+                          <div>
+                            <h4 className="line-clamp-2 text-sm font-black text-[color:var(--foreground)]">
+                              {candidate.title}
+                            </h4>
+                            <p className="mt-1 line-clamp-1 text-xs text-[color:var(--text-muted)]">
+                              {[
+                                candidate.releaseDate?.slice(0, 4),
+                                candidate.genres[0],
+                                candidate.platforms[0],
+                              ]
+                                .filter(Boolean)
+                                .join(' / ') || 'RAWG metadata'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void applyImportCandidate(candidate)}
+                            disabled={importingId === candidate.sourceId}
+                            className="btn-primary w-full px-3 text-sm"
+                          >
+                            {importingId === candidate.sourceId
+                              ? 'Importing...'
+                              : 'Use this'}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
               <div className="space-y-3">
                 <div className="admin-preview-box aspect-square">

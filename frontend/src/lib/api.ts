@@ -148,6 +148,14 @@ export const gamesApi = {
 
     getGenres: () => request<string[]>('/games/genres'),
 
+    searchImportCandidates: (query: string, token: string) => {
+        const params = new URLSearchParams({ query, limit: '8' });
+        return request<GameMetadataSearchResult[]>(`/games/import/search?${params.toString()}`, { token });
+    },
+
+    getRawgImport: (id: string, token: string) =>
+        request<GameMetadataImport>(`/games/import/rawg/${id}`, { token }),
+
     create: (data: CreateGameDto, token: string) =>
         request<Game>('/games', { method: 'POST', body: data, token }),
 
@@ -303,6 +311,39 @@ export interface Game {
 }
 
 export type Platform = 'STEAM' | 'PLAYSTATION' | 'XBOX' | 'NINTENDO' | 'ORIGIN' | 'UPLAY' | 'EPIC';
+
+export interface GameMetadataSearchResult {
+    source: 'rawg';
+    sourceId: string;
+    title: string;
+    imageUrl?: string;
+    releaseDate?: string;
+    genres: string[];
+    platforms: string[];
+    rating?: number;
+}
+
+export interface GameMetadataImport {
+    source: 'rawg';
+    sourceId: string;
+    sourceUrl: string;
+    title: string;
+    description?: string;
+    platform: Platform;
+    genre: string;
+    imageUrl?: string;
+    developer?: string;
+    publisher?: string;
+    releaseDate?: string;
+    systemRequirements?: string;
+    minimumSystemRequirements?: string;
+    recommendedSystemRequirements?: string;
+    features: string[];
+    supportedLanguages: string[];
+    activationRegion: string;
+    ageRating?: string;
+    screenshots: string[];
+}
 
 export interface CdKey {
     id: string;
