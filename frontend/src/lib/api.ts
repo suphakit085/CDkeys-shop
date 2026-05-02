@@ -11,6 +11,20 @@ interface RequestOptions {
     skipRefresh?: boolean; // Skip auto-refresh for auth endpoints
 }
 
+interface FormDataRequestOptions {
+    method?: 'POST' | 'PUT' | 'PATCH';
+    token?: string;
+    skipRefresh?: boolean;
+}
+
+function getStoredAccessToken() {
+    return typeof window !== 'undefined' ? localStorage.getItem('accessToken') || undefined : undefined;
+}
+
+function resolveAccessToken(token?: string) {
+    return getStoredAccessToken() || token;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
 
@@ -45,12 +59,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { method = 'GET', body, skipRefresh = false } = options;
-    let { token } = options;
-
-    // Auto-get token from localStorage if not provided
-    if (!token && typeof window !== 'undefined') {
-        token = localStorage.getItem('accessToken') || undefined;
-    }
+    const token = resolveAccessToken(options.token);
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -96,6 +105,57 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     if (!response.ok) {
         const error = await response.json().catch(() => ({
             message: `HTTP ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(error.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.json();
+}
+
+async function requestFormData<T>(endpoint: string, formData: FormData, options: FormDataRequestOptions = {}): Promise<T> {
+    const { method = 'POST', skipRefresh = false } = options;
+    let token = resolveAccessToken(options.token);
+
+    const buildHeaders = (authToken?: string) => {
+        const headers: Record<string, string> = {};
+        if (authToken) {
+            headers.Authorization = `Bearer ${authToken}`;
+        }
+        return headers;
+    };
+
+    let response = await fetch(`${API_URL}${endpoint}`, {
+        method,
+        headers: buildHeaders(token),
+        body: formData,
+    });
+
+    if (response.status === 401 && !skipRefresh && typeof window !== 'undefined') {
+        if (!isRefreshing) {
+            isRefreshing = true;
+            refreshPromise = refreshAccessToken();
+        }
+
+        const newToken = await refreshPromise;
+        isRefreshing = false;
+        refreshPromise = null;
+
+        if (newToken) {
+            token = newToken;
+            response = await fetch(`${API_URL}${endpoint}`, {
+                method,
+                headers: buildHeaders(token),
+                body: formData,
+            });
+        } else {
+            window.dispatchEvent(new Event('auth:unauthorized'));
+            throw new Error('เน€เธเธชเธเธฑเธเธซเธกเธ”เธญเธฒเธขเธธ เธเธฃเธธเธ“เธฒเน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธเธญเธตเธเธเธฃเธฑเนเธ');
+        }
+    }
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({
+            message: `HTTP ${response.status}: ${response.statusText}`,
         }));
         throw new Error(error.message || `Request failed with status ${response.status}`);
     }
@@ -267,6 +327,27 @@ export const paymentApi = {
         request<{ message: string }>(`/payment/reject/${orderId}`, { method: 'POST', body: { reason }, token }),
 };
 
+// Banners API (Admin)
+export const bannersApi = {
+    getAdmin: (token: string) =>
+        request<Banner[]>('/banners/admin', { token }),
+
+    create: (data: BannerInput, token: string) =>
+        request<Banner>('/banners', { method: 'POST', body: data, token }),
+
+    update: (id: string, data: BannerInput, token: string) =>
+        request<Banner>(`/banners/${id}`, { method: 'PUT', body: data, token }),
+
+    delete: (id: string, token: string) =>
+        request<void>(`/banners/${id}`, { method: 'DELETE', token }),
+
+    uploadImage: (file: File, token: string) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        return requestFormData<{ url: string; filename: string }>('/banners/upload-image', formData, { token });
+    },
+};
+
 // Types
 export interface PaginationMeta {
     page: number;
@@ -289,6 +370,31 @@ export interface User {
     role: 'CUSTOMER' | 'ADMIN';
     createdAt?: string;
 }
+
+export interface Banner {
+    id: string;
+    title: string;
+    subtitle: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    bgColor: string;
+    link: string;
+    buttonText: string;
+    isActive: boolean;
+    order: number;
+}
+
+export type BannerInput = {
+    title: string;
+    subtitle?: string | null;
+    description?: string | null;
+    imageUrl?: string | null;
+    bgColor: string;
+    link: string;
+    buttonText: string;
+    isActive: boolean;
+    order: number;
+};
 
 export interface Game {
     id: string;

@@ -3,7 +3,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_URL, BACKEND_URL, getUploadUrl } from '@/lib/config';
+import { BACKEND_URL, getUploadUrl } from '@/lib/config';
+import { bannersApi, Banner, BannerInput } from '@/lib/api';
 import {
   AdminAccessRequired,
   AdminEmpty,
@@ -14,19 +15,6 @@ import {
   AdminStatCard,
   cx,
 } from '@/components/admin/AdminUI';
-
-interface Banner {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  description: string | null;
-  imageUrl: string | null;
-  bgColor: string;
-  link: string;
-  buttonText: string;
-  isActive: boolean;
-  order: number;
-}
 
 const defaultBgColors = [
   { name: 'Teal / Blue', value: 'from-teal-500 via-cyan-600 to-blue-700' },
@@ -47,15 +35,6 @@ const defaultBanner = {
   isActive: true,
   order: 0,
 };
-
-async function readApiError(response: Response, fallback: string) {
-  try {
-    const data = (await response.json()) as { message?: string };
-    return data.message || fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function normalizeUploadedUrl(url: string) {
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -95,15 +74,7 @@ export default function AdminBannersPage() {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/banners/admin`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'Unable to load banners'));
-      }
-
-      const data = (await response.json()) as Banner[];
+      const data = await bannersApi.getAdmin(token);
       setBanners(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load banners');
@@ -159,30 +130,22 @@ export default function AdminBannersPage() {
     setIsSaving(true);
 
     try {
-      const response = await fetch(
-        editingBanner ? `${API_URL}/banners/${editingBanner.id}` : `${API_URL}/banners`,
-        {
-          method: editingBanner ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            title,
-            subtitle: subtitle || null,
-            description: description || null,
-            imageUrl: imageUrl || null,
-            bgColor,
-            link,
-            buttonText,
-            isActive,
-            order,
-          }),
-        },
-      );
+      const payload: BannerInput = {
+        title,
+        subtitle: subtitle || null,
+        description: description || null,
+        imageUrl: imageUrl || null,
+        bgColor,
+        link,
+        buttonText,
+        isActive,
+        order,
+      };
 
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'Unable to save banner'));
+      if (editingBanner) {
+        await bannersApi.update(editingBanner.id, payload, token);
+      } else {
+        await bannersApi.create(payload, token);
       }
 
       setSuccess(editingBanner ? 'Banner updated.' : 'Banner created.');
@@ -203,14 +166,7 @@ export default function AdminBannersPage() {
     setSuccess('');
 
     try {
-      const response = await fetch(`${API_URL}/banners/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'Unable to delete banner'));
-      }
+      await bannersApi.delete(id, token);
 
       setSuccess('Banner deleted.');
       await loadBanners();
@@ -228,20 +184,7 @@ export default function AdminBannersPage() {
     setSuccess('');
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch(`${API_URL}/banners/upload-image`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'Image upload failed'));
-      }
-
-      const data = (await response.json()) as { url: string };
+      const data = await bannersApi.uploadImage(file, token);
       setImageUrl(normalizeUploadedUrl(data.url));
       setSuccess('Image uploaded. Save the banner to publish it.');
     } catch (err) {
@@ -421,7 +364,7 @@ export default function AdminBannersPage() {
                     {uploading ? 'Uploading...' : 'Upload image'}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png,.gif,.webp,.avif"
                       onChange={handleImageUpload}
                       className="hidden"
                       disabled={uploading}
