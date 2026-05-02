@@ -1,17 +1,97 @@
+/* eslint-disable @next/next/no-img-element -- Order thumbnails use uploaded artwork and external game images. */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi, Order } from '@/lib/api';
+import { getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMoney } from '@/lib/currency';
+
+const statusStyles: Record<Order['status'], { label: string; badge: string; text: string }> = {
+    COMPLETED: {
+        label: 'สำเร็จ',
+        badge: 'badge-available',
+        text: 'ส่งคีย์เรียบร้อย',
+    },
+    PENDING: {
+        label: 'รอชำระเงิน',
+        badge: 'badge-reserved',
+        text: 'กำลังรอการยืนยัน',
+    },
+    FAILED: {
+        label: 'ไม่สำเร็จ',
+        badge: 'badge-sold',
+        text: 'คำสั่งซื้อถูกยกเลิก',
+    },
+};
+
+function getStatusMeta(status: Order['status'] | string) {
+    return statusStyles[status as Order['status']] || {
+        label: status,
+        badge: 'badge-reserved',
+        text: 'กำลังประมวลผล',
+    };
+}
+
+function getPaymentLabel(method?: Order['paymentMethod']) {
+    return method === 'CREDIT_CARD' ? 'Stripe' : 'PromptPay';
+}
+
+function formatDate(date: string) {
+    return new Date(date).toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+function shortId(id: string) {
+    return `#${id.slice(0, 8).toUpperCase()}`;
+}
+
+function gameImage(url?: string) {
+    return url ? getUploadUrl(url) : '/placeholder-game.jpg';
+}
+
+function OrdersSkeleton() {
+    return (
+        <div className="orders-page min-h-screen bg-[var(--body-background)] py-8 text-[var(--foreground)]">
+            <div className="page-shell animate-pulse">
+                <div className="mb-6 h-6 w-56 rounded-lg bg-[var(--surface-muted)]" />
+                <div className="mb-6 grid gap-3 md:grid-cols-3">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="h-28 rounded-lg border border-[var(--border)] bg-[var(--surface)]" />
+                    ))}
+                </div>
+                <div className="space-y-4">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="h-40 rounded-lg border border-[var(--border)] bg-[var(--surface)]" />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function OrdersPage() {
     const { user, token, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const loadOrders = useCallback(async () => {
+        if (!token) return;
+        try {
+            const data = await ordersApi.getMy(token);
+            setOrders(data);
+        } catch (error) {
+            console.error('Failed to load orders:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [token]);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -22,103 +102,137 @@ export default function OrdersPage() {
         if (token) {
             loadOrders();
         }
-    }, [user, token, authLoading, router]);
+    }, [user, token, authLoading, router, loadOrders]);
 
-    const loadOrders = async () => {
-        if (!token) return;
-        try {
-            const data = await ordersApi.getMy(token);
-            setOrders(data);
-        } catch (error) {
-            console.error('Failed to load orders:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const summary = useMemo(() => {
+        const completedOrders = orders.filter((order) => order.status === 'COMPLETED');
+        const pendingOrders = orders.filter((order) => order.status === 'PENDING');
+        const totalSpent = completedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
-    const getStatusBadge = (status: string) => {
-        const styles: Record<string, string> = {
-            COMPLETED: 'badge-available',
-            PENDING: 'badge-reserved',
-            FAILED: 'badge-sold',
+        return {
+            total: orders.length,
+            completed: completedOrders.length,
+            pending: pendingOrders.length,
+            totalSpent,
         };
-        return styles[status] || '';
-    };
+    }, [orders]);
 
     if (authLoading || isLoading) {
+        return <OrdersSkeleton />;
+    }
+
+    if (orders.length === 0) {
         return (
-            <div className="max-w-4xl mx-auto px-4 py-8">
-                <div className="animate-pulse space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                        <div key={i} className="glass-card h-32" />
-                    ))}
+            <div className="orders-page min-h-screen bg-[var(--body-background)] py-8 text-[var(--foreground)]">
+                <div className="page-shell">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-6 py-14 text-center shadow-[var(--card-shadow)]">
+                        <p className="text-sm font-black uppercase text-[var(--primary)]">Orders</p>
+                        <h1 className="mt-2 text-3xl font-black">ยังไม่มีคำสั่งซื้อ</h1>
+                        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[var(--text-muted)]">
+                            เลือกเกมที่ต้องการ แล้วคำสั่งซื้อทั้งหมดจะมาอยู่ในหน้านี้พร้อมสถานะการชำระเงินและคีย์เกม
+                        </p>
+                        <Link href="/store" className="btn-primary mt-8 inline-flex px-6">
+                            ไปเลือกเกม
+                        </Link>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    if (orders.length === 0) {
-        return (
-            <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-                <div className="text-6xl mb-6">📦</div>
-                <h1 className="text-3xl font-bold text-white mb-4">No orders yet</h1>
-                <p className="text-gray-400 mb-8">Start shopping to see your orders here!</p>
-                <Link href="/store" className="btn-primary py-3 px-8">
-                    Browse Store
-                </Link>
-            </div>
-        );
-    }
-
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent mb-8">
-                My Orders
-            </h1>
-
-            <div className="space-y-4">
-                {orders.map((order) => (
-                    <Link
-                        key={order.id}
-                        href={`/orders/${order.id}`}
-                        className="block glass-card p-6 hover:border-purple-500/50 transition-colors"
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <p className="text-gray-400 text-sm">Order ID</p>
-                                <p className="text-white font-mono text-sm">{order.id.slice(0, 8)}...</p>
-                            </div>
-                            <span className={`badge ${getStatusBadge(order.status)}`}>
-                                {order.status}
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-4 mb-4">
-                            {order.orderItems.slice(0, 4).map((item, index) => (
-                                <img
-                                    key={index}
-                                    src={item.game.imageUrl || '/placeholder-game.jpg'}
-                                    alt={item.game.title}
-                                    className="w-12 h-12 rounded-lg object-cover"
-                                />
-                            ))}
-                            {order.orderItems.length > 4 && (
-                                <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
-                                    +{order.orderItems.length - 4}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400">
-                                {new Date(order.createdAt).toLocaleDateString()} •{' '}
-                                {order.orderItems.length} items
-                            </span>
-                            <span className="text-white font-bold">{formatMoney(order.total)}</span>
-                        </div>
+        <div className="orders-page min-h-screen bg-[var(--body-background)] py-8 text-[var(--foreground)]">
+            <main className="page-shell">
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <p className="text-sm font-black uppercase text-[var(--primary)]">Orders</p>
+                        <h1 className="mt-1 text-3xl font-black leading-tight md:text-4xl">คำสั่งซื้อของฉัน</h1>
+                        <p className="mt-2 text-sm text-[var(--text-muted)]">
+                            ติดตามสถานะการชำระเงินและเปิดดูคีย์เกมที่ซื้อไว้
+                        </p>
+                    </div>
+                    <Link href="/store" className="btn-secondary px-5">
+                        เลือกเกมเพิ่ม
                     </Link>
-                ))}
-            </div>
+                </div>
+
+                <section className="mb-6 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+                        <p className="text-xs font-black uppercase text-[var(--text-muted)]">Total orders</p>
+                        <p className="mt-2 text-3xl font-black">{summary.total}</p>
+                        <p className="mt-1 text-sm text-[var(--text-muted)]">ทั้งหมดในบัญชีนี้</p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+                        <p className="text-xs font-black uppercase text-[var(--text-muted)]">Completed</p>
+                        <p className="mt-2 text-3xl font-black text-[var(--success)]">{summary.completed}</p>
+                        <p className="mt-1 text-sm text-[var(--text-muted)]">พร้อมเปิดดูคีย์</p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+                        <p className="text-xs font-black uppercase text-[var(--text-muted)]">Total paid</p>
+                        <p className="mt-2 text-3xl font-black">{formatMoney(summary.totalSpent)}</p>
+                        <p className="mt-1 text-sm text-[var(--text-muted)]">{summary.pending} รายการรอตรวจสอบ</p>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    {orders.map((order) => {
+                        const meta = getStatusMeta(order.status);
+                        const previewItems = order.orderItems.slice(0, 4);
+
+                        return (
+                            <Link
+                                key={order.id}
+                                href={`/orders/${order.id}`}
+                                className="group block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--border-strong)]"
+                            >
+                                <div className="grid gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-4 gap-1 bg-[var(--surface-muted)] p-3 lg:grid-cols-2">
+                                        {previewItems.map((item) => (
+                                            <div key={item.id} className="aspect-video overflow-hidden rounded-lg bg-slate-900">
+                                                <img src={gameImage(item.game.imageUrl)} alt={item.game.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                                            </div>
+                                        ))}
+                                        {order.orderItems.length > 4 && (
+                                            <div className="flex aspect-video items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm font-black text-[var(--text-muted)]">
+                                                +{order.orderItems.length - 4}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="p-5">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`badge ${meta.badge}`}>{meta.label}</span>
+                                                    <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-black uppercase text-[var(--text-muted)]">
+                                                        {getPaymentLabel(order.paymentMethod)}
+                                                    </span>
+                                                </div>
+                                                <h2 className="mt-3 text-xl font-black">{shortId(order.id)}</h2>
+                                                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                                                    {formatDate(order.createdAt)} · {order.orderItems.length} รายการ · {meta.text}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 sm:text-right">
+                                                <p className="text-xs font-black uppercase text-[var(--text-muted)]">ยอดรวม</p>
+                                                <p className="mt-1 text-2xl font-black">{formatMoney(order.total)}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-5 flex flex-wrap gap-2">
+                                            {order.orderItems.slice(0, 3).map((item) => (
+                                                <span key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm font-bold">
+                                                    {item.game.title}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </section>
+            </main>
         </div>
     );
 }
