@@ -146,12 +146,16 @@ export default function AdminGames() {
   const applyImportCandidate = async (candidate: GameMetadataSearchResult) => {
     if (!token) return;
 
-    setImportingId(candidate.sourceId);
+    const candidateKey = `${candidate.source}:${candidate.sourceId}`;
+    setImportingId(candidateKey);
     setImportError('');
     setImportNotice('');
 
     try {
-      const metadata = await gamesApi.getRawgImport(candidate.sourceId, token);
+      const metadata =
+        candidate.source === 'steam'
+          ? await gamesApi.getSteamImport(candidate.sourceId, token)
+          : await gamesApi.getRawgImport(candidate.sourceId, token);
       setFormData((current) => ({
         ...current,
         title: metadata.title || current.title,
@@ -333,10 +337,10 @@ export default function AdminGames() {
                   <div>
                     <p className="admin-eyebrow">Import metadata</p>
                     <h3 className="text-base font-black text-[color:var(--foreground)]">
-                      Search RAWG and fill this form
+                      Search RAWG and Steam
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                      Pull game artwork, description, publisher, screenshots, and system requirements.
+                      Pull artwork, descriptions, publisher data, screenshots, and system requirements.
                     </p>
                   </div>
                 </div>
@@ -381,7 +385,7 @@ export default function AdminGames() {
                   <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                     {importResults.map((candidate) => (
                       <article
-                        key={candidate.sourceId}
+                        key={`${candidate.source}:${candidate.sourceId}`}
                         className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
                       >
                         <div className="aspect-[16/9] bg-[color:var(--surface-solid)]">
@@ -399,6 +403,9 @@ export default function AdminGames() {
                         </div>
                         <div className="space-y-3 p-3">
                           <div>
+                            <span className="mb-2 inline-flex rounded-full border border-[color:var(--border)] px-2 py-1 text-[0.68rem] font-black uppercase text-[color:var(--primary)]">
+                              {candidate.source}
+                            </span>
                             <h4 className="line-clamp-2 text-sm font-black text-[color:var(--foreground)]">
                               {candidate.title}
                             </h4>
@@ -409,16 +416,20 @@ export default function AdminGames() {
                                 candidate.platforms[0],
                               ]
                                 .filter(Boolean)
-                                .join(' / ') || 'RAWG metadata'}
+                                .join(' / ') || 'Game metadata'}
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => void applyImportCandidate(candidate)}
-                            disabled={importingId === candidate.sourceId}
+                            disabled={
+                              importingId ===
+                              `${candidate.source}:${candidate.sourceId}`
+                            }
                             className="btn-primary w-full px-3 text-sm"
                           >
-                            {importingId === candidate.sourceId
+                            {importingId ===
+                            `${candidate.source}:${candidate.sourceId}`
                               ? 'Importing...'
                               : 'Use this'}
                           </button>

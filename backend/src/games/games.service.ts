@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGameDto, UpdateGameDto } from './dto/game.dto';
@@ -148,21 +149,29 @@ export class GamesService {
   }
 
   async create(dto: CreateGameDto) {
-    return this.prisma.game.create({
-      data: {
-        ...dto,
-        price: dto.price,
-      },
-    });
+    try {
+      return await this.prisma.game.create({
+        data: {
+          ...dto,
+          price: dto.price,
+        },
+      });
+    } catch (error) {
+      this.handleGameWriteError(error);
+    }
   }
 
   async update(id: string, dto: UpdateGameDto) {
     await this.findOne(id);
 
-    return this.prisma.game.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.game.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error) {
+      this.handleGameWriteError(error);
+    }
   }
 
   async delete(id: string) {
@@ -203,5 +212,18 @@ export class GamesService {
       distinct: ['genre'],
     });
     return games.map((g) => g.genre);
+  }
+
+  private handleGameWriteError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        'A game with this title and platform already exists. Edit the existing game or choose another platform.',
+      );
+    }
+
+    throw error;
   }
 }

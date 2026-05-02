@@ -156,6 +156,9 @@ export const gamesApi = {
     getRawgImport: (id: string, token: string) =>
         request<GameMetadataImport>(`/games/import/rawg/${id}`, { token }),
 
+    getSteamImport: (id: string, token: string) =>
+        request<GameMetadataImport>(`/games/import/steam/${id}`, { token }),
+
     create: (data: CreateGameDto, token: string) =>
         request<Game>('/games', { method: 'POST', body: data, token }),
 
@@ -313,7 +316,7 @@ export interface Game {
 export type Platform = 'STEAM' | 'PLAYSTATION' | 'XBOX' | 'NINTENDO' | 'ORIGIN' | 'UPLAY' | 'EPIC';
 
 export interface GameMetadataSearchResult {
-    source: 'rawg';
+    source: 'rawg' | 'steam';
     sourceId: string;
     title: string;
     imageUrl?: string;
@@ -324,7 +327,7 @@ export interface GameMetadataSearchResult {
 }
 
 export interface GameMetadataImport {
-    source: 'rawg';
+    source: 'rawg' | 'steam';
     sourceId: string;
     sourceUrl: string;
     title: string;

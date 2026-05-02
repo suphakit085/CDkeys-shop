@@ -122,19 +122,29 @@ let GamesService = class GamesService {
         };
     }
     async create(dto) {
-        return this.prisma.game.create({
-            data: {
-                ...dto,
-                price: dto.price,
-            },
-        });
+        try {
+            return await this.prisma.game.create({
+                data: {
+                    ...dto,
+                    price: dto.price,
+                },
+            });
+        }
+        catch (error) {
+            this.handleGameWriteError(error);
+        }
     }
     async update(id, dto) {
         await this.findOne(id);
-        return this.prisma.game.update({
-            where: { id },
-            data: dto,
-        });
+        try {
+            return await this.prisma.game.update({
+                where: { id },
+                data: dto,
+            });
+        }
+        catch (error) {
+            this.handleGameWriteError(error);
+        }
     }
     async delete(id) {
         await this.findOne(id);
@@ -163,6 +173,13 @@ let GamesService = class GamesService {
             distinct: ['genre'],
         });
         return games.map((g) => g.genre);
+    }
+    handleGameWriteError(error) {
+        if (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002') {
+            throw new common_1.ConflictException('A game with this title and platform already exists. Edit the existing game or choose another platform.');
+        }
+        throw error;
     }
 };
 exports.GamesService = GamesService;

@@ -17,7 +17,7 @@ A full-stack digital game keys marketplace built with Next.js, NestJS, PostgreSQ
 
 - Dashboard with sales stats
 - Game management
-- Import game metadata from RAWG into the admin game form
+- Import game metadata from RAWG and Steam into the admin game form
 - Bulk CD key upload
 - Key status tracking
 - Order monitoring
@@ -113,7 +113,7 @@ RAWG_API_KEY="..."
 
 For production email, verify your sending domain in Resend and use `EMAIL_FROM` from that verified domain. `ADMIN_EMAIL` is the private mailbox that receives new-order and PromptPay slip review notifications.
 
-`RAWG_API_KEY` enables the admin game import helper. Create a key from [RAWG API Docs](https://rawg.io/apidocs), store it only in the Railway backend variables, then redeploy the backend.
+`RAWG_API_KEY` enables RAWG results in the admin game import helper. Steam results work without an extra key, and the backend caches Steam's app list to keep searches fast. Create a RAWG key from [RAWG API Docs](https://rawg.io/apidocs), store it only in the Railway backend variables, then redeploy the backend.
 
 After Railway generates a backend domain, update the frontend variables in Vercel:
 
@@ -184,8 +184,9 @@ Start Checkout
 
 - `GET /api/games` - List games
 - `GET /api/games/:id` - Get game details
-- `GET /api/games/import/search?query=...` - Search RAWG metadata candidates
+- `GET /api/games/import/search?query=...` - Search RAWG and Steam metadata candidates
 - `GET /api/games/import/rawg/:id` - Get mapped RAWG metadata for the admin form
+- `GET /api/games/import/steam/:id` - Get mapped Steam metadata for the admin form
 - `POST /api/games` - Create game
 - `PUT /api/games/:id` - Update game
 - `DELETE /api/games/:id` - Delete game

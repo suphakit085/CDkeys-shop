@@ -1,6 +1,7 @@
 import { Platform } from '@prisma/client';
+type MetadataSource = 'rawg' | 'steam';
 export type GameMetadataSearchResult = {
-    source: 'rawg';
+    source: MetadataSource;
     sourceId: string;
     title: string;
     imageUrl?: string;
@@ -10,7 +11,7 @@ export type GameMetadataSearchResult = {
     rating?: number;
 };
 export type GameMetadataImport = {
-    source: 'rawg';
+    source: MetadataSource;
     sourceId: string;
     sourceUrl: string;
     title: string;
@@ -33,8 +34,19 @@ export type GameMetadataImport = {
 export declare class GameMetadataService {
     private readonly logger;
     private readonly rawgBaseUrl;
+    private steamAppsCache;
+    private readonly steamDetailsCache;
+    searchGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
     searchRawgGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
+    searchSteamGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
     getRawgGame(rawgId: string): Promise<GameMetadataImport>;
+    getSteamGame(appId: string): Promise<GameMetadataImport>;
+    private getSteamAppList;
+    private fetchSteamAppDetails;
+    private validateSearchQuery;
+    private dedupeSearchResults;
+    private scoreTitleMatch;
+    private normalizeTitle;
     private fetchRawg;
     private getRawgApiKey;
     private names;
@@ -42,6 +54,13 @@ export declare class GameMetadataService {
     private mapPlatform;
     private getPcRequirements;
     private getFeatureList;
+    private steamDescriptions;
+    private getSteamRequirements;
+    private parseSteamDate;
+    private parseSteamLanguages;
+    private parseSteamAgeRating;
     private toDateInputValue;
     private cleanText;
+    private safeStringify;
 }
+export {};

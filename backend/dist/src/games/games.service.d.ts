@@ -161,4 +161,5 @@ export declare class GamesService {
         screenshots: string[];
     }>;
     getGenres(): Promise<string[]>;
+    private handleGameWriteError;
 }

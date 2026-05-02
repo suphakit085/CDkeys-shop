@@ -66,9 +66,9 @@ export class GamesController {
     @Query('query') query = '',
     @Query('limit') limit?: string,
   ) {
-    return this.gameMetadataService.searchRawgGames(
+    return this.gameMetadataService.searchGames(
       query,
-      this.parsePositiveInt(limit) || 8,
+      this.parsePositiveInt(limit) || 12,
     );
   }
 
@@ -77,6 +77,13 @@ export class GamesController {
   @Roles(Role.ADMIN)
   async getRawgImport(@Param('id') id: string) {
     return this.gameMetadataService.getRawgGame(id);
+  }
+
+  @Get('import/steam/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getSteamImport(@Param('id') id: string) {
+    return this.gameMetadataService.getSteamGame(id);
   }
 
   @Get(':id')

@@ -67,6 +67,7 @@ export declare class GamesController {
     getGenres(): Promise<string[]>;
     searchImportCandidates(query?: string, limit?: string): Promise<import("./game-metadata.service").GameMetadataSearchResult[]>;
     getRawgImport(id: string): Promise<import("./game-metadata.service").GameMetadataImport>;
+    getSteamImport(id: string): Promise<import("./game-metadata.service").GameMetadataImport>;
     findOne(id: string): Promise<{
         availableKeys: number;
         _count: undefined;

@@ -14,15 +14,43 @@ const env_1 = require("../common/env");
 let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
     logger = new common_1.Logger(GameMetadataService_1.name);
     rawgBaseUrl = 'https://api.rawg.io/api';
-    async searchRawgGames(query, pageSize = 8) {
-        const trimmedQuery = query.trim();
-        if (trimmedQuery.length < 2) {
-            throw new common_1.BadRequestException('Search term must be at least 2 characters');
+    steamAppsCache = null;
+    steamDetailsCache = new Map();
+    async searchGames(query, pageSize = 12) {
+        const trimmedQuery = this.validateSearchQuery(query);
+        const perSourceLimit = Math.max(4, Math.min(12, pageSize));
+        const [steamResult, rawgResult] = await Promise.allSettled([
+            this.searchSteamGames(trimmedQuery, perSourceLimit),
+            this.searchRawgGames(trimmedQuery, Math.min(6, perSourceLimit)),
+        ]);
+        const combined = [];
+        if (steamResult.status === 'fulfilled') {
+            combined.push(...steamResult.value);
         }
+        else {
+            this.logger.warn(`Steam search failed: ${steamResult.reason}`);
+        }
+        if (rawgResult.status === 'fulfilled') {
+            combined.push(...rawgResult.value);
+        }
+        else {
+            this.logger.warn(`RAWG search failed: ${rawgResult.reason}`);
+        }
+        if (combined.length === 0) {
+            if (steamResult.status === 'rejected' &&
+                rawgResult.status === 'rejected') {
+                throw new common_1.ServiceUnavailableException('Game metadata providers are unavailable right now');
+            }
+            return [];
+        }
+        return this.dedupeSearchResults(combined).slice(0, pageSize);
+    }
+    async searchRawgGames(query, pageSize = 8) {
+        const trimmedQuery = this.validateSearchQuery(query);
         const response = await this.fetchRawg('/games', {
             search: trimmedQuery,
+            search_precise: 'true',
             page_size: String(Math.max(1, Math.min(12, pageSize))),
-            ordering: '-rating',
         });
         return (response.results || []).map((game) => ({
             source: 'rawg',
@@ -34,6 +62,41 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
             platforms: this.platformNames(game.platforms),
             rating: typeof game.rating === 'number' ? game.rating : undefined,
         }));
+    }
+    async searchSteamGames(query, pageSize = 8) {
+        const trimmedQuery = this.validateSearchQuery(query);
+        const apps = await this.getSteamAppList();
+        const scored = apps
+            .map((app) => ({
+            app,
+            score: this.scoreTitleMatch(app.name, trimmedQuery),
+        }))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score || a.app.name.length - b.app.name.length)
+            .slice(0, Math.max(8, pageSize * 2));
+        const details = await Promise.all(scored.map(async ({ app, score }) => {
+            const detail = await this.fetchSteamAppDetails(String(app.appid)).catch((error) => {
+                this.logger.warn(`Steam details unavailable for ${app.appid}: ${error}`);
+                return null;
+            });
+            return { app, detail, score };
+        }));
+        return details
+            .filter(({ detail }) => !detail || detail.type === 'game')
+            .map(({ app, detail }) => ({
+            source: 'steam',
+            sourceId: String(app.appid),
+            title: detail?.name || app.name,
+            imageUrl: detail?.header_image ||
+                detail?.capsule_imagev5 ||
+                detail?.capsule_image ||
+                undefined,
+            releaseDate: this.parseSteamDate(detail?.release_date),
+            genres: this.steamDescriptions(detail?.genres),
+            platforms: ['Steam'],
+            rating: undefined,
+        }))
+            .slice(0, pageSize);
     }
     async getRawgGame(rawgId) {
         const id = rawgId.trim();
@@ -86,6 +149,168 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
                 .filter((url, index, urls) => urls.indexOf(url) === index)
                 .slice(0, 6),
         };
+    }
+    async getSteamGame(appId) {
+        const id = appId.trim();
+        if (!/^\d+$/.test(id)) {
+            throw new common_1.BadRequestException('Invalid Steam app id');
+        }
+        const detail = await this.fetchSteamAppDetails(id);
+        if (!detail || detail.type !== 'game') {
+            throw new common_1.NotFoundException('Steam game metadata not found');
+        }
+        const requirements = this.getSteamRequirements(detail.pc_requirements);
+        const screenshots = (detail.screenshots || [])
+            .map((item) => item.path_full || item.path_thumbnail)
+            .filter((url) => Boolean(url))
+            .slice(0, 6);
+        const imageUrl = detail.header_image ||
+            detail.capsule_imagev5 ||
+            detail.capsule_image ||
+            screenshots[0];
+        return {
+            source: 'steam',
+            sourceId: id,
+            sourceUrl: `https://store.steampowered.com/app/${id}`,
+            title: detail.name || `Steam App ${id}`,
+            description: this.cleanText(detail.short_description ||
+                detail.about_the_game ||
+                detail.detailed_description),
+            platform: client_1.Platform.STEAM,
+            genre: this.steamDescriptions(detail.genres)[0] || 'Action',
+            imageUrl,
+            developer: (detail.developers || []).join(', ') || undefined,
+            publisher: (detail.publishers || []).join(', ') || undefined,
+            releaseDate: this.parseSteamDate(detail.release_date),
+            systemRequirements: `Steam store: https://store.steampowered.com/app/${id}`,
+            minimumSystemRequirements: this.cleanText(requirements.minimum),
+            recommendedSystemRequirements: this.cleanText(requirements.recommended),
+            features: this.steamDescriptions(detail.categories).slice(0, 8),
+            supportedLanguages: this.parseSteamLanguages(detail.supported_languages),
+            activationRegion: 'Global',
+            ageRating: this.parseSteamAgeRating(detail.required_age),
+            screenshots: [imageUrl, ...screenshots]
+                .filter((url) => Boolean(url))
+                .filter((url, index, urls) => urls.indexOf(url) === index)
+                .slice(0, 6),
+        };
+    }
+    async getSteamAppList() {
+        const now = Date.now();
+        if (this.steamAppsCache && this.steamAppsCache.expiresAt > now) {
+            return this.steamAppsCache.apps;
+        }
+        let response;
+        try {
+            response = await fetch('https://api.steampowered.com/ISteamApps/GetAppList/v2/');
+        }
+        catch (error) {
+            this.logger.error(`Steam app list request failed: ${error}`);
+            throw new common_1.ServiceUnavailableException('Unable to reach Steam right now');
+        }
+        if (!response.ok) {
+            const message = await response.text().catch(() => response.statusText);
+            this.logger.error(`Steam app list error ${response.status}: ${message}`);
+            throw new common_1.ServiceUnavailableException('Steam app list is unavailable');
+        }
+        const payload = (await response.json());
+        const apps = (payload.applist?.apps || [])
+            .filter((app) => Number.isFinite(app.appid) && app.name?.trim())
+            .map((app) => ({ appid: app.appid, name: app.name.trim() }));
+        this.steamAppsCache = {
+            apps,
+            expiresAt: now + 24 * 60 * 60 * 1000,
+        };
+        return apps;
+    }
+    async fetchSteamAppDetails(appId) {
+        const cached = this.steamDetailsCache.get(appId);
+        const now = Date.now();
+        if (cached && cached.expiresAt > now) {
+            return cached.data;
+        }
+        const url = new URL('https://store.steampowered.com/api/appdetails');
+        url.searchParams.set('appids', appId);
+        url.searchParams.set('cc', 'US');
+        url.searchParams.set('l', 'english');
+        let response;
+        try {
+            response = await fetch(url);
+        }
+        catch (error) {
+            this.logger.error(`Steam app details request failed: ${error}`);
+            throw new common_1.ServiceUnavailableException('Unable to reach Steam store right now');
+        }
+        if (!response.ok) {
+            const message = await response.text().catch(() => response.statusText);
+            this.logger.error(`Steam app details error ${response.status}: ${message}`);
+            throw new common_1.ServiceUnavailableException('Steam app details are unavailable');
+        }
+        const payload = (await response.json());
+        const data = payload[appId]?.success ? payload[appId]?.data || null : null;
+        this.steamDetailsCache.set(appId, {
+            data,
+            expiresAt: now + 6 * 60 * 60 * 1000,
+        });
+        return data;
+    }
+    validateSearchQuery(query) {
+        const trimmedQuery = query.trim();
+        if (trimmedQuery.length < 2) {
+            throw new common_1.BadRequestException('Search term must be at least 2 characters');
+        }
+        return trimmedQuery;
+    }
+    dedupeSearchResults(results) {
+        const seen = new Set();
+        const deduped = [];
+        for (const result of results) {
+            const key = `${this.normalizeTitle(result.title)}:${result.source}`;
+            if (seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            deduped.push(result);
+        }
+        return deduped;
+    }
+    scoreTitleMatch(title, query) {
+        const normalizedTitle = this.normalizeTitle(title);
+        const normalizedQuery = this.normalizeTitle(query);
+        if (!normalizedTitle || !normalizedQuery) {
+            return 0;
+        }
+        if (normalizedTitle === normalizedQuery) {
+            return 1000;
+        }
+        if (normalizedTitle.startsWith(`${normalizedQuery} `)) {
+            return 900;
+        }
+        if (normalizedTitle.includes(` ${normalizedQuery} `)) {
+            return 760;
+        }
+        if (normalizedTitle.includes(normalizedQuery)) {
+            return 650;
+        }
+        const queryTokens = normalizedQuery.split(' ');
+        const titleTokens = new Set(normalizedTitle.split(' '));
+        const matchedTokens = queryTokens.filter((token) => titleTokens.has(token));
+        if (matchedTokens.length === queryTokens.length) {
+            return 560;
+        }
+        if (queryTokens.length > 1 &&
+            matchedTokens.length >= queryTokens.length - 1) {
+            return 420;
+        }
+        return 0;
+    }
+    normalizeTitle(value) {
+        return value
+            .toLowerCase()
+            .replace(/['’]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
     }
     async fetchRawg(path, params = {}) {
         const apiKey = this.getRawgApiKey();
@@ -150,7 +375,11 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
             const name = entry.platform?.name?.toLowerCase() || '';
             return name === 'pc' || name.includes('windows');
         });
-        return pc?.requirements_en || {};
+        const requirements = pc?.requirements_en;
+        if (!requirements || typeof requirements !== 'object') {
+            return {};
+        }
+        return requirements;
     }
     getFeatureList(detail) {
         const blockedTags = new Set([
@@ -174,6 +403,51 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
         }
         return this.names(detail.genres).slice(0, 5);
     }
+    steamDescriptions(items) {
+        return (items || [])
+            .map((item) => item.description?.trim())
+            .filter((description) => Boolean(description));
+    }
+    getSteamRequirements(value) {
+        if (!value || typeof value !== 'object') {
+            return {};
+        }
+        return value;
+    }
+    parseSteamDate(releaseDate) {
+        if (!releaseDate?.date || releaseDate.coming_soon) {
+            return undefined;
+        }
+        const timestamp = Date.parse(releaseDate.date);
+        if (!Number.isFinite(timestamp)) {
+            return undefined;
+        }
+        return new Date(timestamp).toISOString().slice(0, 10);
+    }
+    parseSteamLanguages(value) {
+        const cleaned = this.cleanText(value)
+            ?.replace(/\*.+$/s, '')
+            .replace(/languages with full audio support/gi, '')
+            .replace(/interface/gi, '')
+            .replace(/full audio/gi, '')
+            .replace(/subtitles/gi, '');
+        if (!cleaned) {
+            return [];
+        }
+        return cleaned
+            .split(/,|\n/)
+            .map((language) => language.trim())
+            .filter((language) => language.length > 0)
+            .filter((language, index, languages) => languages.indexOf(language) === index)
+            .slice(0, 12);
+    }
+    parseSteamAgeRating(value) {
+        const age = Number(value);
+        if (!Number.isFinite(age) || age <= 0) {
+            return undefined;
+        }
+        return `${age}+`;
+    }
     toDateInputValue(value) {
         if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
             return undefined;
@@ -181,10 +455,18 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
         return value;
     }
     cleanText(value) {
-        if (!value) {
+        if (value === null || value === undefined) {
             return undefined;
         }
-        const cleaned = value
+        const raw = typeof value === 'string'
+            ? value
+            : Array.isArray(value)
+                ? value.join('\n')
+                : this.safeStringify(value);
+        if (!raw.trim()) {
+            return undefined;
+        }
+        const cleaned = raw
             .replace(/<br\s*\/?>/gi, '\n')
             .replace(/<\/p>/gi, '\n\n')
             .replace(/<[^>]+>/g, '')
@@ -197,6 +479,14 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
             .replace(/\n{3,}/g, '\n\n')
             .trim();
         return cleaned || undefined;
+    }
+    safeStringify(value) {
+        try {
+            return JSON.stringify(value);
+        }
+        catch {
+            return '';
+        }
     }
 };
 exports.GameMetadataService = GameMetadataService;

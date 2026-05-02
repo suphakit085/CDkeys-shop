@@ -50,10 +50,13 @@ let GamesController = class GamesController {
         return this.gamesService.getGenres();
     }
     async searchImportCandidates(query = '', limit) {
-        return this.gameMetadataService.searchRawgGames(query, this.parsePositiveInt(limit) || 8);
+        return this.gameMetadataService.searchGames(query, this.parsePositiveInt(limit) || 12);
     }
     async getRawgImport(id) {
         return this.gameMetadataService.getRawgGame(id);
+    }
+    async getSteamImport(id) {
+        return this.gameMetadataService.getSteamGame(id);
     }
     async findOne(id) {
         return this.gamesService.findOne(id);
@@ -107,6 +110,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], GamesController.prototype, "getRawgImport", null);
+__decorate([
+    (0, common_1.Get)('import/steam/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], GamesController.prototype, "getSteamImport", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
