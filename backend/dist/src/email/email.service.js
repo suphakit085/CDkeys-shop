@@ -47,12 +47,15 @@ exports.EmailService = void 0;
 const common_1 = require("@nestjs/common");
 const nodemailer = __importStar(require("nodemailer"));
 const env_1 = require("../common/env");
+const prisma_service_1 = require("../prisma/prisma.service");
 let EmailService = EmailService_1 = class EmailService {
+    prisma;
     logger = new common_1.Logger(EmailService_1.name);
     transporter = null;
     resendApiKey = null;
     useResend = false;
-    constructor() {
+    constructor(prisma) {
+        this.prisma = prisma;
         this.initializeTransporter();
     }
     initializeTransporter() {
@@ -64,7 +67,7 @@ let EmailService = EmailService_1 = class EmailService {
             return;
         }
         const host = process.env.SMTP_HOST;
-        const port = parseInt(process.env.SMTP_PORT || '587');
+        const port = parseInt(process.env.SMTP_PORT || '587', 10);
         const user = process.env.SMTP_USER;
         const pass = process.env.SMTP_PASS;
         if (!(0, env_1.isConfiguredSet)(host, user, pass)) {
@@ -82,52 +85,96 @@ let EmailService = EmailService_1 = class EmailService {
     isConfigured() {
         return this.transporter !== null || this.useResend;
     }
-    async sendWithResend(to, subject, html) {
-        if (!this.resendApiKey)
+    getStoreName() {
+        return process.env.STORE_NAME || 'CD Keys Marketplace';
+    }
+    getFrontendUrl() {
+        return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    }
+    getFromEmail() {
+        return (process.env.EMAIL_FROM ||
+            process.env.SMTP_FROM ||
+            process.env.SMTP_USER ||
+            'CD Keys Marketplace <onboarding@resend.dev>');
+    }
+    async getAdminEmail() {
+        if ((0, env_1.isConfiguredValue)(process.env.ADMIN_EMAIL)) {
+            return process.env.ADMIN_EMAIL;
+        }
+        const admin = await this.prisma.user.findFirst({
+            where: { role: 'ADMIN' },
+            select: { email: true },
+            orderBy: { createdAt: 'asc' },
+        });
+        return admin?.email || process.env.SMTP_USER || '';
+    }
+    formatMoney(amount) {
+        return new Intl.NumberFormat('th-TH', {
+            style: 'currency',
+            currency: 'THB',
+            currencyDisplay: 'narrowSymbol',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(Number.isFinite(amount) ? amount : 0);
+    }
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    async sendWithResend(to, subject, html, text) {
+        if (!this.resendApiKey) {
             return false;
-        const fromEmail = process.env.SMTP_FROM || 'onboarding@resend.dev';
+        }
         try {
             const response = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${this.resendApiKey}`,
+                    Authorization: `Bearer ${this.resendApiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    from: fromEmail,
+                    from: this.getFromEmail(),
                     to: [to],
-                    subject: subject,
-                    html: html,
+                    subject,
+                    html,
+                    text,
                 }),
             });
             if (response.ok) {
                 this.logger.log(`Email sent via Resend to ${to}`);
                 return true;
             }
-            else {
-                const error = await response.json();
-                this.logger.error(`Resend API error: ${JSON.stringify(error)}`);
-                return false;
-            }
+            const error = (await response.json().catch(() => ({})));
+            this.logger.error(`Resend API error: ${JSON.stringify(error)}`);
+            return false;
         }
         catch (error) {
             this.logger.error(`Resend API request failed: ${error}`);
             return false;
         }
     }
-    async sendEmail(to, subject, html) {
-        if (this.useResend) {
-            return this.sendWithResend(to, subject, html);
-        }
-        if (!this.transporter)
+    async sendEmail(to, subject, html, text) {
+        if (!to) {
+            this.logger.warn(`Skipping email without recipient: ${subject}`);
             return false;
-        const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+        }
+        if (this.useResend) {
+            return this.sendWithResend(to, subject, html, text);
+        }
+        if (!this.transporter) {
+            return false;
+        }
         try {
             await this.transporter.sendMail({
-                from: fromEmail,
-                to: to,
-                subject: subject,
-                html: html,
+                from: this.getFromEmail(),
+                to,
+                subject,
+                html,
+                text,
             });
             this.logger.log(`Email sent via SMTP to ${to}`);
             return true;
@@ -137,472 +184,284 @@ let EmailService = EmailService_1 = class EmailService {
             return false;
         }
     }
+    emailLayout(options) {
+        const storeName = this.escapeHtml(this.getStoreName());
+        const accent = options.accent || '#0f766e';
+        return `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${this.escapeHtml(options.title)}</title>
+    <style>
+      body { margin: 0; padding: 0; background: #f4f7f8; color: #172033; font-family: Arial, sans-serif; }
+      .wrapper { width: 100%; padding: 28px 12px; }
+      .container { max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #d9e2e7; border-radius: 12px; overflow: hidden; }
+      .header { padding: 28px 32px; background: ${accent}; color: #ffffff; }
+      .brand { margin: 0; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+      .title { margin: 10px 0 0; font-size: 24px; line-height: 1.25; }
+      .content { padding: 30px 32px; }
+      .muted { color: #5f6b7a; }
+      .button { display: inline-block; padding: 13px 20px; border-radius: 8px; background: ${accent}; color: #ffffff !important; text-decoration: none; font-weight: 700; }
+      .box { padding: 16px; border-radius: 10px; background: #f7fafb; border: 1px solid #dce6eb; }
+      .code { font-family: Consolas, Monaco, monospace; font-size: 16px; color: #111827; word-break: break-all; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 12px; border-bottom: 1px solid #e5edf1; text-align: left; vertical-align: top; }
+      th { color: #465365; font-size: 13px; background: #f7fafb; }
+      .footer { padding: 20px 32px; color: #687485; font-size: 12px; background: #f7fafb; border-top: 1px solid #dce6eb; }
+    </style>
+  </head>
+  <body>
+    <span style="display:none!important;opacity:0;color:transparent;height:0;width:0;overflow:hidden">${this.escapeHtml(options.preview)}</span>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <p class="brand">${storeName}</p>
+          <h1 class="title">${this.escapeHtml(options.title)}</h1>
+        </div>
+        <div class="content">
+          ${options.body}
+        </div>
+        <div class="footer">
+          This transactional email was sent by ${storeName}. If you need help, contact support from the store website.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+    }
     async sendCdKeysEmail(order) {
         if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping CD key delivery email');
             return false;
         }
-        const storeName = process.env.STORE_NAME || 'DGK Marketplace';
-        const keysHtml = order.items.map(item => `
+        const orderCode = order.orderId.slice(0, 8).toUpperCase();
+        const customerName = this.escapeHtml(order.customerName || 'Customer');
+        const rows = order.items
+            .map((item) => `
+          <tr>
+            <td>
+              <strong>${this.escapeHtml(item.gameTitle)}</strong><br>
+              <span class="muted">${this.escapeHtml(item.platform)}</span>
+            </td>
+            <td class="code">${this.escapeHtml(item.cdKey)}</td>
+          </tr>`)
+            .join('');
+        const html = this.emailLayout({
+            title: 'Your game keys are ready',
+            preview: `Order #${orderCode} has been completed.`,
+            accent: '#0f766e',
+            body: `
+        <p>Hello <strong>${customerName}</strong>,</p>
+        <p>Your payment was confirmed. Here are the digital keys for your order.</p>
+        <table>
+          <thead>
             <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                    <strong>${item.gameTitle}</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">${item.platform}</span>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-size: 16px; background-color: #f3f4f6; border-radius: 4px;">
-                    ${item.cdKey}
-                </td>
+              <th>Game</th>
+              <th>CD Key</th>
             </tr>
-        `).join('');
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Your CD Keys</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #7c3aed; margin: 0 0 24px 0; text-align: center;">
-                    🎮 ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #7c3aedff 0%, #a855f7 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">✅ การชำระเงินสำเร็จ!</h2>
-                </div>
-                
-                <p style="color: #374151;">สวัสดีคุณ <strong>${order.customerName || 'ลูกค้า'}</strong>,</p>
-                
-                <p style="color: #374151;">ขอบคุณสำหรับการสั่งซื้อ! นี่คือ CD Keys ของคุณ:</p>
-                
-                <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
-                    <thead>
-                        <tr style="background-color: #f3f4f6;">
-                            <th style="padding: 12px; text-align: left; color: #374151;">เกม</th>
-                            <th style="padding: 12px; text-align: left; color: #374151;">CD Key</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${keysHtml}
-                    </tbody>
-                </table>
-                
-                <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0; color: #92400e; font-size: 14px;">
-                        <strong>⚠️ สำคัญ:</strong> กรุณาเก็บรักษา CD Keys เหล่านี้ไว้อย่างปลอดภัย อย่าแชร์กับผู้อื่น
-                    </p>
-                </div>
-                
-                <p style="color: #374151;">
-                    เลขที่คำสั่งซื้อ: <strong>#${order.orderId.slice(0, 8).toUpperCase()}</strong><br>
-                    ยอดรวม: <strong>฿${order.total.toFixed(2)}</strong>
-                </p>
-                
-                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0;">
-                    หากมีคำถามหรือต้องการความช่วยเหลือ กรุณาติดต่อเรา<br>
-                    ขอบคุณที่ใช้บริการ ${storeName} 
-                </p>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const subject = `🎮 CD Keys ของคุณพร้อมแล้ว! - Order #${order.orderId.slice(0, 8).toUpperCase()}`;
-            const result = await this.sendEmail(order.customerEmail, subject, html);
-            if (result) {
-                this.logger.log(`CD Keys email sent to ${order.customerEmail} for order ${order.orderId}`);
-            }
-            return result;
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="box" style="margin-top:20px">
+          <p style="margin:0"><strong>Order:</strong> #${orderCode}</p>
+          <p style="margin:8px 0 0"><strong>Total:</strong> ${this.escapeHtml(this.formatMoney(order.total))}</p>
+        </div>
+        <p class="muted">Keep these keys private. Do not share them with anyone else.</p>
+      `,
+        });
+        const text = [
+            `Your game keys are ready - Order #${orderCode}`,
+            '',
+            ...order.items.map((item) => `${item.gameTitle} (${item.platform}): ${item.cdKey}`),
+            '',
+            `Total: ${this.formatMoney(order.total)}`,
+        ].join('\n');
+        const subject = `Your CD keys are ready - Order #${orderCode}`;
+        const result = await this.sendEmail(order.customerEmail, subject, html, text);
+        if (result) {
+            this.logger.log(`CD Keys email sent to ${order.customerEmail} for order ${order.orderId}`);
         }
-        catch (error) {
-            this.logger.error(`Failed to send email to ${order.customerEmail}:`, error);
-            return false;
-        }
+        return result;
     }
     async sendPasswordResetEmail(email, resetToken, userName) {
         if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping password reset email');
             return false;
         }
-        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Reset Password</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #7c3aed; margin: 0 0 24px 0; text-align: center;">
-                    🔐 ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">รีเซ็ตรหัสผ่าน</h2>
-                </div>
-                
-                <p style="color: #374151;">สวัสดีคุณ <strong>${userName}</strong>,</p>
-                
-                <p style="color: #374151;">เราได้รับคำขอรีเซ็ตรหัสผ่านสำหรับบัญชีของคุณ คลิกปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่:</p>
-                
-                <div style="text-align: center; margin: 32px 0;">
-                    <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
-                        รีเซ็ตรหัสผ่าน
-                    </a>
-                </div>
-                
-                <p style="color: #6b7280; font-size: 14px;">หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
-                <p style="background-color: #f3f4f6; padding: 12px; border-radius: 6px; word-break: break-all; font-size: 14px; color: #4b5563;">
-                    ${resetLink}
-                </p>
-                
-                <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0; color: #92400e; font-size: 14px;">
-                        <strong>⚠️ สำคัญ:</strong> ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง<br>
-                        หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาเพิกเฉยอีเมลนี้
-                    </p>
-                </div>
-                
-                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0;">
-                    ขอบคุณที่ใช้บริการ ${storeName} 🎉
-                </p>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const subject = `🔐 รีเซ็ตรหัสผ่าน - ${storeName}`;
-            const result = await this.sendEmail(email, subject, html);
-            if (result) {
-                this.logger.log(`Password reset email sent to ${email}`);
-            }
-            return result;
-        }
-        catch (error) {
-            this.logger.error(`Failed to send password reset email to ${email}:`, error);
-            return false;
-        }
+        const resetLink = `${this.getFrontendUrl()}/reset-password/${resetToken}`;
+        const safeLink = this.escapeHtml(resetLink);
+        const html = this.emailLayout({
+            title: 'Reset your password',
+            preview: 'Use this secure link to set a new password.',
+            accent: '#2563eb',
+            body: `
+        <p>Hello <strong>${this.escapeHtml(userName || 'there')}</strong>,</p>
+        <p>We received a request to reset the password for your account.</p>
+        <p style="margin:28px 0"><a class="button" href="${safeLink}">Reset password</a></p>
+        <p class="muted">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
+        <div class="box"><span class="code">${safeLink}</span></div>
+      `,
+        });
+        const text = [
+            'Reset your password',
+            '',
+            'Use this link to reset your password. It expires in 1 hour.',
+            resetLink,
+            '',
+            'If you did not request this, ignore this email.',
+        ].join('\n');
+        return this.sendEmail(email, `Reset your password - ${this.getStoreName()}`, html, text);
     }
     async sendMagicLinkEmail(email, magicToken, userName) {
         if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping magic link email');
             return false;
         }
-        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const magicLink = `${frontendUrl}/magic-login/${magicToken}`;
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Magic Link Login</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #7c3aed; margin: 0 0 24px 0; text-align: center;">
-                    ✨ ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">ล็อกอินด้วยคลิกเดียว</h2>
-                </div>
-                
-                <p style="color: #374151;">สวัสดีคุณ <strong>${userName}</strong>,</p>
-                
-                <p style="color: #374151;">คลิกปุ่มด้านล่างเพื่อล็อกอินเข้าสู่ระบบโดยไม่ต้องพิมพ์รหัสผ่าน:</p>
-                
-                <div style="text-align: center; margin: 32px 0;">
-                    <a href="${magicLink}" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
-                        🚀 ล็อกอินทันที
-                    </a>
-                </div>
-                
-                <p style="color: #6b7280; font-size: 14px;">หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
-                <p style="background-color: #f3f4f6; padding: 12px; border-radius: 6px; word-break: break-all; font-size: 14px; color: #4b5563;">
-                    ${magicLink}
-                </p>
-                
-                <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0; color: #92400e; font-size: 14px;">
-                        <strong>⚠️ สำคัญ:</strong> ลิงก์นี้จะหมดอายุใน 15 นาที<br>
-                        หากคุณไม่ได้ขอล็อกอิน กรุณาเพิกเฉยอีเมลนี้
-                    </p>
-                </div>
-                
-                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0;">
-                    ขอบคุณที่ใช้บริการ ${storeName} 🎉
-                </p>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const subject = `✨ ลิงก์ล็อกอินของคุณ - ${storeName}`;
-            const result = await this.sendEmail(email, subject, html);
-            if (result) {
-                this.logger.log(`Magic link email sent to ${email}`);
-            }
-            return result;
-        }
-        catch (error) {
-            this.logger.error(`Failed to send magic link email to ${email}:`, error);
-            return false;
-        }
+        const magicLink = `${this.getFrontendUrl()}/magic-login/${magicToken}`;
+        const safeLink = this.escapeHtml(magicLink);
+        const html = this.emailLayout({
+            title: 'Sign in to your account',
+            preview: 'Use this secure link to sign in.',
+            accent: '#0f766e',
+            body: `
+        <p>Hello <strong>${this.escapeHtml(userName || 'there')}</strong>,</p>
+        <p>Click the button below to sign in without entering a password.</p>
+        <p style="margin:28px 0"><a class="button" href="${safeLink}">Sign in</a></p>
+        <p class="muted">This link expires in 15 minutes and can be used once.</p>
+        <div class="box"><span class="code">${safeLink}</span></div>
+      `,
+        });
+        const text = [
+            'Sign in to your account',
+            '',
+            'Use this one-time link to sign in. It expires in 15 minutes.',
+            magicLink,
+        ].join('\n');
+        return this.sendEmail(email, `Sign in to ${this.getStoreName()}`, html, text);
     }
     async sendRegistrationMagicLinkEmail(email, magicToken, userName) {
         if (!this.isConfigured()) {
-            this.logger.warn('Email not configured, skipping registration magic link email');
+            this.logger.warn('Email not configured - skipping registration magic link email');
             return false;
         }
-        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const verifyLink = `${frontendUrl}/magic-login/${magicToken}`;
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>ยินดีต้อนรับ</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #7c3aed; margin: 0 0 24px 0; text-align: center;">
-                    🎮 ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">🎉 ยินดีต้อนรับ!</h2>
-                </div>
-                
-                <p style="color: #374151;">สวัสดีคุณ <strong>${userName}</strong>,</p>
-                
-                <p style="color: #374151;">ขอบคุณที่สมัครใช้งาน ${storeName}! คลิกปุ่มด้านล่างเพื่อเปิดใช้งานบัญชีและเริ่มช้อปปิ้ง:</p>
-                
-                <div style="text-align: center; margin: 32px 0;">
-                    <a href="${verifyLink}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
-                        🚀 เปิดใช้งานบัญชี
-                    </a>
-                </div>
-                
-                <p style="color: #6b7280; font-size: 14px;">หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
-                <p style="background-color: #f3f4f6; padding: 12px; border-radius: 6px; word-break: break-all; font-size: 14px; color: #4b5563;">
-                    ${verifyLink}
-                </p>
-                
-                <div style="background-color: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0; color: #1e40af; font-size: 14px;">
-                        <strong>ℹ️ หมายเหตุ:</strong> ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง<br>
-                        หลังจากเปิดใช้งานแล้ว คุณสามารถตั้งรหัสผ่านได้ในหน้าโปรไฟล์
-                    </p>
-                </div>
-                
-                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0;">
-                    ขอบคุณที่ใช้บริการ ${storeName} 🎉
-                </p>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const subject = `🎉 ยินดีต้อนรับสู่ ${storeName} - เปิดใช้งานบัญชีของคุณ`;
-            const result = await this.sendEmail(email, subject, html);
-            if (result) {
-                this.logger.log(`Registration magic link email sent to ${email}`);
-            }
-            return result;
-        }
-        catch (error) {
-            this.logger.error(`Failed to send registration magic link email to ${email}:`, error);
-            return false;
-        }
+        const verifyLink = `${this.getFrontendUrl()}/magic-login/${magicToken}`;
+        const safeLink = this.escapeHtml(verifyLink);
+        const html = this.emailLayout({
+            title: 'Activate your account',
+            preview: `Welcome to ${this.getStoreName()}. Activate your account.`,
+            accent: '#0f766e',
+            body: `
+        <p>Hello <strong>${this.escapeHtml(userName || 'there')}</strong>,</p>
+        <p>Welcome to ${this.escapeHtml(this.getStoreName())}. Activate your account to start shopping.</p>
+        <p style="margin:28px 0"><a class="button" href="${safeLink}">Activate account</a></p>
+        <p class="muted">This link expires in 24 hours.</p>
+        <div class="box"><span class="code">${safeLink}</span></div>
+      `,
+        });
+        const text = [
+            'Activate your account',
+            '',
+            `Welcome to ${this.getStoreName()}. Use this link to activate your account:`,
+            verifyLink,
+        ].join('\n');
+        return this.sendEmail(email, `Activate your ${this.getStoreName()} account`, html, text);
     }
     async sendNewOrderNotification(order) {
         if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping order notification');
             return false;
         }
-        const storeEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        if (!storeEmail) {
-            this.logger.warn('Store email not configured');
+        const adminEmail = await this.getAdminEmail();
+        if (!adminEmail) {
+            this.logger.warn('ADMIN_EMAIL not configured - skipping admin email');
             return false;
         }
-        const itemsHtml = order.items.map(item => `
+        const orderCode = order.orderId.slice(0, 8).toUpperCase();
+        const rows = order.items
+            .map((item) => `
+          <tr>
+            <td>${this.escapeHtml(item.gameTitle)}</td>
+            <td>${this.escapeHtml(item.platform)}</td>
+            <td class="code">${this.escapeHtml(item.cdKey)}</td>
+          </tr>`)
+            .join('');
+        const html = this.emailLayout({
+            title: 'New completed order',
+            preview: `Order #${orderCode} was completed.`,
+            accent: '#111827',
+            body: `
+        <div class="box">
+          <p style="margin:0"><strong>Order:</strong> #${orderCode}</p>
+          <p style="margin:8px 0 0"><strong>Customer:</strong> ${this.escapeHtml(order.customerName)} (${this.escapeHtml(order.customerEmail)})</p>
+          <p style="margin:8px 0 0"><strong>Total:</strong> ${this.escapeHtml(this.formatMoney(order.total))}</p>
+        </div>
+        <table style="margin-top:20px">
+          <thead>
             <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                    <strong>${item.gameTitle}</strong>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                    ${item.platform}
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace;">
-                    ${item.cdKey}
-                </td>
+              <th>Game</th>
+              <th>Platform</th>
+              <th>CD Key</th>
             </tr>
-        `).join('');
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>คำสั่งซื้อใหม่</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #059669; margin: 0 0 24px 0; text-align: center;">
-                    💰 ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">🔔 คำสั่งซื้อใหม่!</h2>
-                </div>
-                
-                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-                    <p style="margin: 0; color: #166534;"><strong>Order ID:</strong> ${order.orderId}</p>
-                    <p style="margin: 8px 0 0 0; color: #166534;"><strong>ลูกค้า:</strong> ${order.customerName}</p>
-                    <p style="margin: 8px 0 0 0; color: #166534;"><strong>อีเมล:</strong> ${order.customerEmail}</p>
-                </div>
-                
-                <h3 style="color: #374151; margin-bottom: 16px;">รายการสินค้า:</h3>
-                
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-                    <thead>
-                        <tr style="background-color: #f3f4f6;">
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">เกม</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">แพลตฟอร์ม</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">CD Key</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsHtml}
-                    </tbody>
-                </table>
-                
-                <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
-                    <p style="margin: 0; font-size: 18px;">💵 ยอดรวม: <strong>฿${order.total.toFixed(2)}</strong></p>
-                </div>
-                
-                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
-                    <p>อีเมลนี้ส่งอัตโนมัติจากระบบ ${storeName}</p>
-                    <p>เวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const storeEmail = process.env.SMTP_FROM || 'admin@cdkeys.com';
-            const subject = `🔔 คำสั่งซื้อใหม่! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`;
-            const result = await this.sendEmail(storeEmail, subject, html);
-            if (result) {
-                this.logger.log(`New order notification sent to store: ${storeEmail}`);
-            }
-            return result;
-        }
-        catch (error) {
-            this.logger.error(`Failed to send order notification:`, error);
-            return false;
-        }
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `,
+        });
+        const text = [
+            `New completed order #${orderCode}`,
+            `Customer: ${order.customerName} <${order.customerEmail}>`,
+            `Total: ${this.formatMoney(order.total)}`,
+        ].join('\n');
+        return this.sendEmail(adminEmail, `New completed order #${orderCode}`, html, text);
     }
     async sendPendingPaymentNotification(order) {
         if (!this.isConfigured()) {
             this.logger.warn('Email not configured - skipping pending payment notification');
             return false;
         }
-        const storeEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-        const storeName = process.env.STORE_NAME || 'CD Keys Marketplace';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        if (!storeEmail) {
-            this.logger.warn('Store email not configured');
+        const adminEmail = await this.getAdminEmail();
+        if (!adminEmail) {
+            this.logger.warn('ADMIN_EMAIL not configured - skipping admin email');
             return false;
         }
-        const itemsHtml = order.items.map(item => `
-            <li style="padding: 8px 0; border-bottom: 1px solid #fef3c7;">
-                <strong>${item.gameTitle}</strong> - ${item.platform}
-            </li>
-        `).join('');
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>รอตรวจสอบการชำระเงิน</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-            <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h1 style="color: #d97706; margin: 0 0 24px 0; text-align: center;">
-                    ⏳ ${storeName}
-                </h1>
-                
-                <div style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: white; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; font-size: 20px;">🔔 รอตรวจสอบการชำระเงิน!</h2>
-                </div>
-                
-                <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-                    <p style="margin: 0; color: #92400e;"><strong>⚠️ มีลูกค้าอัพโหลดสลิปใหม่!</strong></p>
-                    <p style="margin: 8px 0 0 0; color: #92400e;">กรุณาตรวจสอบและอนุมัติเพื่อส่ง CD Keys ให้ลูกค้า</p>
-                </div>
-                
-                <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-                    <p style="margin: 0; color: #374151;"><strong>Order ID:</strong> ${order.orderId}</p>
-                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>ลูกค้า:</strong> ${order.customerName}</p>
-                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>อีเมล:</strong> ${order.customerEmail}</p>
-                    <p style="margin: 8px 0 0 0; color: #374151;"><strong>ยอดรวม:</strong> <span style="color: #059669; font-weight: bold;">฿${order.total.toFixed(2)}</span></p>
-                </div>
-                
-                <h3 style="color: #374151; margin-bottom: 12px;">📦 รายการสินค้า:</h3>
-                <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; background-color: #fffbeb; border-radius: 8px; overflow: hidden;">
-                    ${itemsHtml}
-                </ul>
-                
-                <div style="text-align: center; margin-bottom: 24px;">
-                    <p style="color: #6b7280; margin-bottom: 16px;">📎 สลิปการชำระเงิน:</p>
-                    <a href="${order.slipUrl}" style="display: inline-block; color: #7c3aed; text-decoration: underline;">ดูสลิป</a>
-                </div>
-                
-                <div style="text-align: center;">
-                    <a href="${frontendUrl}/admin/verify-payments" style="display: inline-block; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
-                        ✅ ไปตรวจสอบเลย
-                    </a>
-                </div>
-                
-                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
-                    <p>อีเมลนี้ส่งอัตโนมัติจากระบบ ${storeName}</p>
-                    <p>เวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        `;
-        try {
-            const subject = `⏳ รอตรวจสอบ! - Order #${order.orderId.slice(-8).toUpperCase()} - ฿${order.total.toFixed(2)}`;
-            const result = await this.sendEmail(storeEmail, subject, html);
-            if (result) {
-                this.logger.log(`Pending payment notification sent to store: ${storeEmail}`);
-            }
-            return result;
-        }
-        catch (error) {
-            this.logger.error(`Failed to send pending payment notification:`, error);
-            return false;
-        }
+        const orderCode = order.orderId.slice(0, 8).toUpperCase();
+        const adminLink = `${this.getFrontendUrl()}/admin/verify-payments`;
+        const items = order.items
+            .map((item) => `<li>${this.escapeHtml(item.gameTitle)} - ${this.escapeHtml(item.platform)}</li>`)
+            .join('');
+        const html = this.emailLayout({
+            title: 'PromptPay slip needs review',
+            preview: `Order #${orderCode} has a slip waiting for review.`,
+            accent: '#b45309',
+            body: `
+        <div class="box">
+          <p style="margin:0"><strong>Order:</strong> #${orderCode}</p>
+          <p style="margin:8px 0 0"><strong>Customer:</strong> ${this.escapeHtml(order.customerName)} (${this.escapeHtml(order.customerEmail)})</p>
+          <p style="margin:8px 0 0"><strong>Total:</strong> ${this.escapeHtml(this.formatMoney(order.total))}</p>
+        </div>
+        <h2 style="font-size:16px;margin:22px 0 8px">Items</h2>
+        <ul>${items}</ul>
+        <p style="margin:24px 0">
+          <a class="button" href="${this.escapeHtml(adminLink)}">Review payment</a>
+        </p>
+        <p><a href="${this.escapeHtml(order.slipUrl)}">View uploaded slip</a></p>
+      `,
+        });
+        const text = [
+            `PromptPay slip needs review - Order #${orderCode}`,
+            `Customer: ${order.customerName} <${order.customerEmail}>`,
+            `Total: ${this.formatMoney(order.total)}`,
+            `Admin: ${adminLink}`,
+            `Slip: ${order.slipUrl}`,
+        ].join('\n');
+        return this.sendEmail(adminEmail, `PromptPay slip needs review #${orderCode}`, html, text);
     }
 };
 exports.EmailService = EmailService;
 exports.EmailService = EmailService = EmailService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], EmailService);
 //# sourceMappingURL=email.service.js.map

@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [sessionExpired, setSessionExpired] = useState(false);
     const router = useRouter();
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         const savedToken = localStorage.getItem('accessToken');
         const savedUser = localStorage.getItem('user');
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setIsLoading(false);
     }, []);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // Listen for unauthorized events
     useEffect(() => {

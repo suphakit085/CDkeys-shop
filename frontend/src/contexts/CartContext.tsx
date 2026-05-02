@@ -26,6 +26,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
 
     // Load cart when component mounts or user changes
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         const cartKey = getCartKey();
         const savedCart = localStorage.getItem(cartKey);
@@ -35,6 +36,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             setItems([]);
         }
     }, [user?.id]); // Clear cart when user changes
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // Save cart to localStorage
     useEffect(() => {

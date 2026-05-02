@@ -1,11 +1,13 @@
 import { PaymentService } from './payment.service';
 import { Request as ExpressRequest } from 'express';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 type RawBodyRequest = ExpressRequest & {
     rawBody?: Buffer;
 };
 export declare class PaymentController {
     private paymentService;
-    constructor(paymentService: PaymentService);
+    private cloudinaryService;
+    constructor(paymentService: PaymentService, cloudinaryService: CloudinaryService);
     uploadSlip(orderId: string, file: Express.Multer.File, req: {
         user: {
             id: string;
@@ -19,6 +21,8 @@ export declare class PaymentController {
             transRef?: string;
         } | undefined;
     }>;
+    private storeSlip;
+    private cleanupStoredSlip;
     createStripeCheckout(orderId: string, req: {
         user: {
             id: string;

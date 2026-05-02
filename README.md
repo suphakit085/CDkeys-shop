@@ -96,6 +96,9 @@ Recommended production variables when uploads/emails are enabled:
 CLOUDINARY_CLOUD_NAME="..."
 CLOUDINARY_API_KEY="..."
 CLOUDINARY_API_SECRET="..."
+RESEND_API_KEY="re_..."
+EMAIL_FROM="CD Keys Marketplace <noreply@yourdomain.com>"
+ADMIN_EMAIL="admin@yourdomain.com"
 SMTP_HOST="..."
 SMTP_PORT=587
 SMTP_USER="..."
@@ -105,6 +108,8 @@ STORE_NAME="CD Keys Marketplace"
 SLIPOK_API_KEY="..."
 SLIPOK_BRANCH_ID="..."
 ```
+
+For production email, verify your sending domain in Resend and use `EMAIL_FROM` from that verified domain. `ADMIN_EMAIL` is the private mailbox that receives new-order and PromptPay slip review notifications.
 
 After Railway generates a backend domain, update the frontend variables in Vercel:
 
@@ -166,6 +171,10 @@ Start Checkout
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login
 - `GET /api/auth/profile` - Get profile
+- `POST /api/auth/forgot-password` - Send password reset email
+- `POST /api/auth/reset-password` - Reset password with emailed token
+- `POST /api/auth/send-magic-link` - Send one-time login email
+- `GET /api/auth/verify-magic-link/:token` - Verify one-time login token
 
 ### Games
 

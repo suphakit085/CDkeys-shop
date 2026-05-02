@@ -1,354 +1,332 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { RegisterDto, LoginDto } from './dto';
 
+const PASSWORD_RESET_SENT_MESSAGE =
+  'If this email exists, a password reset link has been sent.';
+const MAGIC_LINK_SENT_MESSAGE =
+  'If this email exists, a sign-in link has been sent.';
+const REGISTRATION_LINK_SENT_MESSAGE =
+  'Activation link sent. Please check your email to activate the account.';
+
 @Injectable()
 export class AuthService {
-    constructor(
-        private prisma: PrismaService,
-        private jwtService: JwtService,
-        private emailService: EmailService,
-    ) { }
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+    private emailService: EmailService,
+  ) {}
 
-    async register(dto: RegisterDto) {
-        // Check if user already exists
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email: dto.email },
-        });
+  async register(dto: RegisterDto) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
 
-        if (existingUser) {
-            throw new ConflictException('Email already registered');
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-        // Create user
-        const user = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                password: hashedPassword,
-                name: dto.name,
-            },
-        });
-
-        // Generate tokens
-        const tokens = await this.generateTokens(user.id, user.email, user.role);
-
-        return {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-            },
-            ...tokens,
-        };
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
     }
 
-    async login(dto: LoginDto) {
-        // Find user
-        const user = await this.prisma.user.findUnique({
-            where: { email: dto.email },
-        });
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashedPassword,
+        name: dto.name,
+      },
+    });
 
-        if (!user) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
+    const tokens = this.generateTokens(user.id, user.email, user.role);
 
-        // Verify password
-        const passwordValid = await bcrypt.compare(dto.password, user.password);
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      ...tokens,
+    };
+  }
 
-        if (!passwordValid) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
 
-        // Generate tokens
-        const tokens = await this.generateTokens(user.id, user.email, user.role);
-
-        return {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-            },
-            ...tokens,
-        };
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    async getProfile(userId: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-            },
-        });
-
-        if (!user) {
-            throw new UnauthorizedException('User not found');
-        }
-
-        return user;
+    const passwordValid = await bcrypt.compare(dto.password, user.password);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    private async generateTokens(userId: string, email: string, role: string) {
-        const payload = { sub: userId, email, role };
+    const tokens = this.generateTokens(user.id, user.email, user.role);
 
-        const accessToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_SECRET || 'default-secret',
-            expiresIn: 900, // 15 minutes in seconds
-        });
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      ...tokens,
+    };
+  }
 
-        const refreshToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
-            expiresIn: 604800, // 7 days in seconds
-        });
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
 
-        return {
-            accessToken,
-            refreshToken,
-        };
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    async refreshTokens(refreshToken: string) {
-        try {
-            const payload = this.jwtService.verify(refreshToken, {
-                secret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
-            });
+    return user;
+  }
 
-            const user = await this.prisma.user.findUnique({
-                where: { id: payload.sub },
-            });
+  private generateTokens(userId: string, email: string, role: Role) {
+    const payload = { sub: userId, email, role };
 
-            if (!user) {
-                throw new UnauthorizedException('User not found');
-            }
+    const accessToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET || 'default-secret',
+      expiresIn: 900,
+    });
 
-            return this.generateTokens(user.id, user.email, user.role);
-        } catch {
-            throw new UnauthorizedException('Invalid refresh token');
-        }
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
+      expiresIn: 604800,
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async refreshTokens(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify<{ sub: string }>(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      return this.generateTokens(user.id, user.email, user.role);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return { message: PASSWORD_RESET_SENT_MESSAGE };
     }
 
-    // Password Reset Methods
-    async requestPasswordReset(email: string): Promise<{ message: string }> {
-        const user = await this.prisma.user.findUnique({
-            where: { email },
-        });
+    const resetToken = randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(resetToken, 10);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-        // Always return success even if user not found (security best practice)
-        if (!user) {
-            return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์รีเซ็ตรหัสผ่านไปให้' };
-        }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: expiresAt,
+      },
+    });
 
-        // Generate secure random token
-        const crypto = require('crypto');
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = await bcrypt.hash(resetToken, 10);
-
-        // Token expires in 1 hour
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 1);
-
-        // Save token to database
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                resetPasswordToken: hashedToken,
-                resetPasswordExpires: expiresAt,
-            },
-        });
-
-        // Send email with reset link
-        if (this.emailService.isConfigured()) {
-            await this.emailService.sendPasswordResetEmail(email, resetToken, user.name);
-        }
-
-        return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์รีเซ็ตรหัสผ่านไปให้' };
+    if (this.emailService.isConfigured()) {
+      await this.emailService.sendPasswordResetEmail(
+        email,
+        resetToken,
+        user.name,
+      );
     }
 
-    async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-        // Find users with non-expired reset tokens
-        const users = await this.prisma.user.findMany({
-            where: {
-                resetPasswordExpires: {
-                    gte: new Date(),
-                },
-                NOT: {
-                    resetPasswordToken: null,
-                },
-            },
-        });
+    return { message: PASSWORD_RESET_SENT_MESSAGE };
+  }
 
-        // Check each user's token (since it's hashed)
-        let matchedUser: typeof users[0] | null = null;
-        for (const user of users) {
-            const isValid = await bcrypt.compare(token, user.resetPasswordToken!);
-            if (isValid) {
-                matchedUser = user;
-                break;
-            }
-        }
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        resetPasswordExpires: { gte: new Date() },
+        NOT: { resetPasswordToken: null },
+      },
+    });
 
-        if (!matchedUser) {
-            throw new UnauthorizedException('ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว');
-        }
-
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update password and clear reset token
-        await this.prisma.user.update({
-            where: { id: matchedUser.id },
-            data: {
-                password: hashedPassword,
-                resetPasswordToken: null,
-                resetPasswordExpires: null,
-            },
-        });
-
-        return { message: 'เปลี่ยนรหัสผ่านสำเร็จ' };
+    let matchedUser: (typeof users)[0] | null = null;
+    for (const user of users) {
+      const isValid = await bcrypt.compare(token, user.resetPasswordToken!);
+      if (isValid) {
+        matchedUser = user;
+        break;
+      }
     }
 
-    // Magic Link Methods
-    async sendMagicLink(email: string): Promise<{ message: string }> {
-        const user = await this.prisma.user.findUnique({
-            where: { email },
-        });
-
-        // Always return success even if user not found (security)
-        if (!user) {
-            return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์ล็อกอินไปให้' };
-        }
-
-        // Generate secure random token
-        const crypto = require('crypto');
-        const magicToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = await bcrypt.hash(magicToken, 10);
-
-        // Token expires in 15 minutes
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-        // Save token to database
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                magicLinkToken: hashedToken,
-                magicLinkExpires: expiresAt,
-            },
-        });
-
-        // Send email with magic link
-        if (this.emailService.isConfigured()) {
-            await this.emailService.sendMagicLinkEmail(email, magicToken, user.name);
-        }
-
-        return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์ล็อกอินไปให้' };
+    if (!matchedUser) {
+      throw new UnauthorizedException(
+        'This reset link is invalid or has expired.',
+      );
     }
 
-    async verifyMagicLink(token: string) {
-        // Find users with non-expired magic link tokens
-        const users = await this.prisma.user.findMany({
-            where: {
-                magicLinkExpires: {
-                    gte: new Date(),
-                },
-                NOT: {
-                    magicLinkToken: null,
-                },
-            },
-        });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: matchedUser.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
 
-        // Check each user's token (since it's hashed)
-        let matchedUser: typeof users[0] | null = null;
-        for (const user of users) {
-            const isValid = await bcrypt.compare(token, user.magicLinkToken!);
-            if (isValid) {
-                matchedUser = user;
-                break;
-            }
-        }
+    return { message: 'Password updated successfully.' };
+  }
 
-        if (!matchedUser) {
-            throw new UnauthorizedException('ลิงก์ล็อกอินไม่ถูกต้องหรือหมดอายุแล้ว');
-        }
+  async sendMagicLink(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
 
-        // Clear magic link token (one-time use)
-        await this.prisma.user.update({
-            where: { id: matchedUser.id },
-            data: {
-                magicLinkToken: null,
-                magicLinkExpires: null,
-            },
-        });
-
-        // Generate auth tokens
-        const tokens = await this.generateTokens(
-            matchedUser.id,
-            matchedUser.email,
-            matchedUser.role
-        );
-
-        return {
-            user: {
-                id: matchedUser.id,
-                email: matchedUser.email,
-                name: matchedUser.name,
-                role: matchedUser.role,
-            },
-            ...tokens,
-        };
+    if (!user) {
+      return { message: MAGIC_LINK_SENT_MESSAGE };
     }
 
-    // Register with Magic Link (passwordless registration)
-    async registerWithMagicLink(email: string, name: string): Promise<{ message: string }> {
-        // Check if user already exists
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email },
-        });
+    const magicToken = randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(magicToken, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-        if (existingUser) {
-            throw new ConflictException('อีเมลนี้มีผู้ใช้งานแล้ว กรุณาใช้ลิงก์ล้างรหัสผ่านแทน');
-        }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        magicLinkToken: hashedToken,
+        magicLinkExpires: expiresAt,
+      },
+    });
 
-        // Generate secure random token
-        const crypto = require('crypto');
-        const magicToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = await bcrypt.hash(magicToken, 10);
-
-        // Token expires in 24 hours (longer for registration)
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
-
-        // Create user with temporary random password (will be changed by user)
-        const tempPassword = crypto.randomBytes(16).toString('hex');
-        const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-        // Create user and store magic link token
-        await this.prisma.user.create({
-            data: {
-                email,
-                name,
-                password: hashedPassword,
-                magicLinkToken: hashedToken,
-                magicLinkExpires: expiresAt,
-            },
-        });
-
-        // Send registration magic link email
-        if (this.emailService.isConfigured()) {
-            await this.emailService.sendRegistrationMagicLinkEmail(email, magicToken, name);
-        }
-
-        return { message: 'เราได้ส่งลิงก์ยืนยันไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบอีเมลเพื่อเปิดใช้งานบัญชี' };
+    if (this.emailService.isConfigured()) {
+      await this.emailService.sendMagicLinkEmail(email, magicToken, user.name);
     }
+
+    return { message: MAGIC_LINK_SENT_MESSAGE };
+  }
+
+  async verifyMagicLink(token: string) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        magicLinkExpires: { gte: new Date() },
+        NOT: { magicLinkToken: null },
+      },
+    });
+
+    let matchedUser: (typeof users)[0] | null = null;
+    for (const user of users) {
+      const isValid = await bcrypt.compare(token, user.magicLinkToken!);
+      if (isValid) {
+        matchedUser = user;
+        break;
+      }
+    }
+
+    if (!matchedUser) {
+      throw new UnauthorizedException(
+        'This sign-in link is invalid or has expired.',
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: matchedUser.id },
+      data: {
+        magicLinkToken: null,
+        magicLinkExpires: null,
+      },
+    });
+
+    const tokens = this.generateTokens(
+      matchedUser.id,
+      matchedUser.email,
+      matchedUser.role,
+    );
+
+    return {
+      user: {
+        id: matchedUser.id,
+        email: matchedUser.email,
+        name: matchedUser.name,
+        role: matchedUser.role,
+      },
+      ...tokens,
+    };
+  }
+
+  async registerWithMagicLink(
+    email: string,
+    name: string,
+  ): Promise<{ message: string }> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(
+        'Email already registered. Use the sign-in email link instead.',
+      );
+    }
+
+    const magicToken = randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(magicToken, 10);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const tempPassword = randomBytes(16).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await this.prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+        magicLinkToken: hashedToken,
+        magicLinkExpires: expiresAt,
+      },
+    });
+
+    if (this.emailService.isConfigured()) {
+      await this.emailService.sendRegistrationMagicLinkEmail(
+        email,
+        magicToken,
+        name,
+      );
+    }
+
+    return { message: REGISTRATION_LINK_SENT_MESSAGE };
+  }
 }

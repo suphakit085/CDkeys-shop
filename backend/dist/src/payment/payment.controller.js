@@ -22,17 +22,9 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const client_1 = require("@prisma/client");
 const payment_service_1 = require("./payment.service");
 const path_1 = require("path");
+const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 const multerOptions = {
-    storage: (0, multer_1.diskStorage)({
-        destination: './uploads/slips',
-        filename: (_req, file, cb) => {
-            const randomName = Array(32)
-                .fill(null)
-                .map(() => Math.round(Math.random() * 16).toString(16))
-                .join('');
-            cb(null, `${randomName}${(0, path_1.extname)(file.originalname)}`);
-        },
-    }),
+    storage: (0, multer_1.memoryStorage)(),
     limits: {
         fileSize: 5 * 1024 * 1024,
     },
@@ -47,32 +39,68 @@ const multerOptions = {
 };
 let PaymentController = class PaymentController {
     paymentService;
-    constructor(paymentService) {
+    cloudinaryService;
+    constructor(paymentService, cloudinaryService) {
         this.paymentService = paymentService;
+        this.cloudinaryService = cloudinaryService;
     }
     async uploadSlip(orderId, file, req) {
         if (!file) {
             throw new common_1.BadRequestException('No file uploaded');
         }
-        const slipUrl = `/uploads/slips/${file.filename}`;
+        const slipUpload = await this.storeSlip(file);
         let result;
         try {
-            result = await this.paymentService.uploadPaymentSlip(orderId, req.user.id, slipUrl);
+            result = await this.paymentService.uploadPaymentSlip(orderId, req.user.id, slipUpload.url);
         }
         catch (error) {
-            const fs = await import('fs/promises');
-            const path = await import('path');
-            await fs
-                .unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename))
-                .catch(() => undefined);
+            await this.cleanupStoredSlip(slipUpload);
             throw error;
         }
         return {
             message: result.message,
-            slipUrl,
+            slipUrl: slipUpload.url,
             autoVerified: result.autoVerified,
             slipData: result.slipData,
         };
+    }
+    async storeSlip(file) {
+        if (this.cloudinaryService.isEnabled()) {
+            const result = await this.cloudinaryService.uploadImage(file, 'slips');
+            return {
+                url: result.url,
+                publicId: result.publicId,
+                provider: 'cloudinary',
+            };
+        }
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const uploadDir = path.join(process.cwd(), 'uploads', 'slips');
+        await fs.mkdir(uploadDir, { recursive: true });
+        const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+        const filename = `${randomName}${(0, path_1.extname)(file.originalname)}`;
+        await fs.writeFile(path.join(uploadDir, filename), file.buffer);
+        return {
+            url: `/uploads/slips/${filename}`,
+            filename,
+            provider: 'local',
+        };
+    }
+    async cleanupStoredSlip(slip) {
+        if (slip.provider === 'cloudinary' && slip.publicId) {
+            await this.cloudinaryService.deleteImage(slip.publicId);
+            return;
+        }
+        if (slip.provider === 'local' && slip.filename) {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            await fs
+                .unlink(path.join(process.cwd(), 'uploads', 'slips', slip.filename))
+                .catch(() => undefined);
+        }
     }
     async createStripeCheckout(orderId, req) {
         return this.paymentService.createStripeCheckoutSession(orderId, req.user.id);
@@ -156,6 +184,7 @@ __decorate([
 ], PaymentController.prototype, "getPendingPayments", null);
 exports.PaymentController = PaymentController = __decorate([
     (0, common_1.Controller)('payment'),
-    __metadata("design:paramtypes", [payment_service_1.PaymentService])
+    __metadata("design:paramtypes", [payment_service_1.PaymentService,
+        cloudinary_service_1.CloudinaryService])
 ], PaymentController);
 //# sourceMappingURL=payment.controller.js.map

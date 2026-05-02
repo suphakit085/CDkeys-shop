@@ -1,108 +1,122 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 
 export default function MagicLoginPage() {
-    const params = useParams();
-    const token = params.token as string;
-    const router = useRouter();
-    const { login: contextLogin } = useAuth();
-    const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-    const [message, setMessage] = useState('');
-    const hasVerified = useRef(false);
+  const params = useParams();
+  const token = params.token as string;
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+    'loading',
+  );
+  const [message, setMessage] = useState('');
+  const hasVerified = useRef(false);
 
-    useEffect(() => {
-        // Prevent double execution in React Strict Mode
-        if (hasVerified.current) return;
-        hasVerified.current = true;
+  useEffect(() => {
+    if (hasVerified.current) {
+      return;
+    }
+    hasVerified.current = true;
 
-        const verifyMagicLink = async () => {
-            try {
-                const response = await fetch(`${API_URL}/auth/verify-magic-link/${token}`);
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Save auth data to context
-                    localStorage.setItem('accessToken', data.accessToken);
-                    localStorage.setItem('refreshToken', data.refreshToken);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-
-                    setStatus('success');
-                    setMessage('ล็อกอินสำเร็จ!');
-
-                    // Redirect to home after 1 second
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
-                } else {
-                    setStatus('error');
-                    setMessage(data.message || 'ลิงก์ล็อกอินไม่ถูกต้องหรือหมดอายุแล้ว');
-                }
-            } catch (err) {
-                setStatus('error');
-                setMessage('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-            }
+    const verifyMagicLink = async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/auth/verify-magic-link/${token}`,
+        );
+        const data = (await response.json()) as {
+          accessToken?: string;
+          refreshToken?: string;
+          user?: unknown;
+          message?: string;
         };
 
-        verifyMagicLink();
-    }, [token, router, contextLogin]);
+        if (!response.ok || !data.accessToken || !data.refreshToken) {
+          throw new Error(
+            data.message || 'This sign-in link is invalid or has expired.',
+          );
+        }
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl text-center">
-                {status === 'loading' && (
-                    <>
-                        <div className="text-6xl mb-4">✨</div>
-                        <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                            กำลังล็อกอิน...
-                        </h2>
-                        <p className="text-gray-600 mb-6">
-                            กรุณารอสักครู่
-                        </p>
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
-                    </>
-                )}
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
 
-                {status === 'success' && (
-                    <>
-                        <div className="text-6xl mb-4">🎉</div>
-                        <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                            ล็อกอินสำเร็จ!
-                        </h2>
-                        <p className="text-gray-600 mb-6">
-                            {message}
-                        </p>
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-                    </>
-                )}
+        setStatus('success');
+        setMessage('Sign-in complete. Redirecting you now.');
+        window.setTimeout(() => {
+          window.location.href = '/store';
+        }, 1000);
+      } catch (err) {
+        setStatus('error');
+        setMessage(
+          err instanceof Error
+            ? err.message
+            : 'Unable to connect to the server.',
+        );
+      }
+    };
 
-                {status === 'error' && (
-                    <>
-                        <div className="text-6xl mb-4">❌</div>
-                        <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                            เกิดข้อผิดพลาด
-                        </h2>
-                        <p className="text-red-600 mb-6">{message}</p>
-                        <div className="space-y-3">
-                            <a
-                                href="/login"
-                                className="block w-full py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition-all"
-                            >
-                                ไปหน้าเข้าสู่ระบบ
-                            </a>
-                            <a
-                                href="/forgot-password"
-                                className="block w-full py-3 px-4 border border-purple-600 text-sm font-medium rounded-lg text-purple-600 hover:bg-purple-50 transition-all"
-                            >
-                                ขอลิงก์ใหม่
-                            </a>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
+    void verifyMagicLink();
+  }, [token]);
+
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="absolute inset-0 bg-[var(--background)]" />
+      <section className="page-shell relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-8 sm:py-12">
+        <section className="surface w-full max-w-[500px] p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
+          {status === 'loading' && (
+            <>
+              <p className="text-sm font-black uppercase text-[var(--primary)]">
+                Secure sign-in
+              </p>
+              <h1 className="mt-2 text-3xl font-black text-[var(--foreground)]">
+                Checking your link
+              </h1>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">
+                Please wait while we verify this one-time sign-in link.
+              </p>
+              <div className="mx-auto mt-6 h-10 w-10 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+            </>
+          )}
+
+          {status === 'success' && (
+            <>
+              <p className="text-sm font-black uppercase text-[var(--primary)]">
+                Success
+              </p>
+              <h1 className="mt-2 text-3xl font-black text-[var(--foreground)]">
+                You are signed in
+              </h1>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">
+                {message}
+              </p>
+              <div className="mx-auto mt-6 h-10 w-10 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+            </>
+          )}
+
+          {status === 'error' && (
+            <>
+              <p className="text-sm font-black uppercase text-[var(--error)]">
+                Link problem
+              </p>
+              <h1 className="mt-2 text-3xl font-black text-[var(--foreground)]">
+                We could not sign you in
+              </h1>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">
+                {message}
+              </p>
+              <div className="mt-6 grid gap-3">
+                <a className="btn-primary py-3" href="/login">
+                  Back to login
+                </a>
+                <a className="btn-secondary py-3" href="/forgot-password">
+                  Reset password instead
+                </a>
+              </div>
+            </>
+          )}
+        </section>
+      </section>
+    </div>
+  );
 }

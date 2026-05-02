@@ -2,122 +2,127 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 
 export default function ForgotPasswordPage() {
-    const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setMessage('');
-        setIsLoading(true);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setIsLoading(true);
 
-        try {
-            const response = await fetch(`${API_URL}/auth/forgot-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await response.json()) as { message?: string };
 
-            const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to send reset email.');
+      }
 
-            if (response.ok) {
-                setMessage(data.message || 'เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณแล้ว');
-                setEmail('');
-            } else {
-                setError(data.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-            }
-        } catch (err) {
-            setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+      setMessage(
+        data.message ||
+          'If this email exists, a password reset link has been sent.',
+      );
+      setEmail('');
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to connect to the server.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-                <div>
-                    <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-2">
-                        🔐 ลืมรหัสผ่าน?
-                    </h2>
-                    <p className="text-center text-sm text-gray-600">
-                        ไม่ต้องกังวล! กรอกอีเมลของคุณแล้วเราจะส่งลิงก์รีเซ็ตรหัสผ่านให้
-                    </p>
-                </div>
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1511512578047-dfb367046420?w=2200&q=85')",
+        }}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,10,14,0.74)_0%,rgba(9,20,27,0.56)_48%,rgba(7,10,14,0.9)_100%)]" />
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    {message && (
-                        <div className="rounded-lg bg-green-50 border border-green-200 p-4">
-                            <div className="flex">
-                                <div className="flex-shrink-0">
-                                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
-                                </div>
-                                <div className="ml-3">
-                                    <p className="text-sm font-medium text-green-800">{message}</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {error && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                            <p className="text-sm text-red-800">{error}</p>
-                        </div>
-                    )}
-
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            อีเมล
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                            placeholder="your@email.com"
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    กำลังส่ง...
-                                </>
-                            ) : (
-                                '📧 ส่งลิงก์รีเซ็ตรหัสผ่าน'
-                            )}
-                        </button>
-                    </div>
-
-                    <div className="flex items-center justify-center space-x-2 text-sm">
-                        <Link href="/login" className="font-medium text-purple-600 hover:text-purple-500 transition-colors">
-                            ← กลับไปหน้าเข้าสู่ระบบ
-                        </Link>
-                    </div>
-                </form>
+      <section className="page-shell relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-8 sm:py-12">
+        <section className="surface w-full max-w-[500px] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl sm:p-7 lg:p-8">
+          <div className="mb-7">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-teal-300/30 bg-teal-300/[0.14] text-sm font-black text-[var(--primary)]">
+              CK
             </div>
-        </div>
-    );
+            <p className="text-sm font-black uppercase text-[var(--primary)]">
+              Account recovery
+            </p>
+            <h1 className="mt-2 text-3xl font-black leading-tight text-[var(--foreground)]">
+              Reset your password
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+              Enter your email and we will send a secure reset link if an
+              account exists.
+            </p>
+          </div>
+
+          {message && (
+            <div className="admin-notice admin-notice-success mb-5 text-sm">
+              {message}
+            </div>
+          )}
+
+          {error && (
+            <div className="admin-notice admin-notice-error mb-5 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <label className="grid gap-2" htmlFor="email">
+              <span className="text-sm font-bold text-[var(--text-muted)]">
+                Email
+              </span>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="input"
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+                disabled={isLoading}
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-primary w-full py-3 disabled:opacity-50"
+            >
+              {isLoading ? 'Sending reset link...' : 'Send reset link'}
+            </button>
+          </form>
+
+          <div className="mt-7 border-t border-[var(--border)] pt-5 text-center text-sm text-[var(--text-muted)]">
+            <Link
+              href="/login"
+              className="font-black text-[var(--primary)] hover:text-[var(--primary-hover)]"
+            >
+              Back to login
+            </Link>
+          </div>
+        </section>
+      </section>
+    </div>
+  );
 }

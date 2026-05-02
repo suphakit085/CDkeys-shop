@@ -13,7 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import type { FileFilterCallback } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -22,6 +22,7 @@ import { Role } from '@prisma/client';
 import { PaymentService, SlipUploadResult } from './payment.service';
 import { extname } from 'path';
 import { Request as ExpressRequest } from 'express';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 type RawBodyRequest = ExpressRequest & {
   rawBody?: Buffer;
@@ -29,20 +30,7 @@ type RawBodyRequest = ExpressRequest & {
 
 // Multer configuration
 const multerOptions = {
-  storage: diskStorage({
-    destination: './uploads/slips',
-    filename: (
-      _req,
-      file: Express.Multer.File,
-      cb: (error: Error | null, filename: string) => void,
-    ) => {
-      const randomName = Array(32)
-        .fill(null)
-        .map(() => Math.round(Math.random() * 16).toString(16))
-        .join('');
-      cb(null, `${randomName}${extname(file.originalname)}`);
-    },
-  }),
+  storage: memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
@@ -57,7 +45,10 @@ const multerOptions = {
 
 @Controller('payment')
 export class PaymentController {
-  constructor(private paymentService: PaymentService) {}
+  constructor(
+    private paymentService: PaymentService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('promptpay/upload-slip/:orderId')
@@ -71,29 +62,73 @@ export class PaymentController {
       throw new BadRequestException('No file uploaded');
     }
 
-    const slipUrl = `/uploads/slips/${file.filename}`;
+    const slipUpload = await this.storeSlip(file);
     let result: SlipUploadResult;
     try {
       result = await this.paymentService.uploadPaymentSlip(
         orderId,
         req.user.id,
-        slipUrl,
+        slipUpload.url,
       );
     } catch (error) {
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      await fs
-        .unlink(path.join(process.cwd(), 'uploads', 'slips', file.filename))
-        .catch(() => undefined);
+      await this.cleanupStoredSlip(slipUpload);
       throw error;
     }
 
     return {
       message: result.message,
-      slipUrl,
+      slipUrl: slipUpload.url,
       autoVerified: result.autoVerified,
       slipData: result.slipData,
     };
+  }
+
+  private async storeSlip(file: Express.Multer.File) {
+    if (this.cloudinaryService.isEnabled()) {
+      const result = await this.cloudinaryService.uploadImage(file, 'slips');
+      return {
+        url: result.url,
+        publicId: result.publicId,
+        provider: 'cloudinary' as const,
+      };
+    }
+
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const uploadDir = path.join(process.cwd(), 'uploads', 'slips');
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const randomName = Array(32)
+      .fill(null)
+      .map(() => Math.round(Math.random() * 16).toString(16))
+      .join('');
+    const filename = `${randomName}${extname(file.originalname)}`;
+    await fs.writeFile(path.join(uploadDir, filename), file.buffer);
+
+    return {
+      url: `/uploads/slips/${filename}`,
+      filename,
+      provider: 'local' as const,
+    };
+  }
+
+  private async cleanupStoredSlip(slip: {
+    provider: 'cloudinary' | 'local';
+    publicId?: string;
+    filename?: string;
+  }) {
+    if (slip.provider === 'cloudinary' && slip.publicId) {
+      await this.cloudinaryService.deleteImage(slip.publicId);
+      return;
+    }
+
+    if (slip.provider === 'local' && slip.filename) {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      await fs
+        .unlink(path.join(process.cwd(), 'uploads', 'slips', slip.filename))
+        .catch(() => undefined);
+    }
   }
 
   @UseGuards(JwtAuthGuard)

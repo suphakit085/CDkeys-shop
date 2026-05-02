@@ -1,164 +1,176 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 
 export default function ResetPasswordPage() {
-    const params = useParams();
-    const token = params.token as string;
-    const router = useRouter();
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
+  const params = useParams();
+  const token = params.token as string;
+  const router = useRouter();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
 
-        if (password !== confirmPassword) {
-            setError('รหัสผ่านไม่ตรงกัน');
-            return;
-        }
-
-        if (password.length < 8) {
-            setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            const response = await fetch(`${API_URL}/auth/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    token: token,
-                    newPassword: password,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setSuccess(true);
-                setTimeout(() => {
-                    router.push('/login');
-                }, 2000);
-            } else {
-                setError(data.message || 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว');
-            }
-        } catch (err) {
-            setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    if (success) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl text-center">
-                    <div className="text-6xl mb-4">✅</div>
-                    <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                        เปลี่ยนรหัสผ่านสำเร็จ!
-                    </h2>
-                    <p className="text-gray-600 mb-6">
-                        กำลังพาคุณไปหน้าเข้าสู่ระบบ...
-                    </p>
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-                </div>
-            </div>
-        );
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
     }
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword: password }),
+      });
+      const data = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || 'This reset link is invalid or has expired.',
+        );
+      }
+
+      setSuccess(true);
+      window.setTimeout(() => router.push('/login'), 1800);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to connect to the server.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (success) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-                <div>
-                    <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-2">
-                        🔐 ตั้งรหัสผ่านใหม่
-                    </h2>
-                    <p className="text-center text-sm text-gray-600">
-                        กรุณากรอกรหัสผ่านใหม่ของคุณ
-                    </p>
-                </div>
-
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    {error && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                            <p className="text-sm text-red-800">{error}</p>
-                        </div>
-                    )}
-
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                            รหัสผ่านใหม่
-                        </label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                            placeholder="••••••••"
-                            disabled={isLoading}
-                            minLength={8}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">อย่างน้อย 8 ตัวอักษร</p>
-                    </div>
-
-                    <div>
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                            ยืนยันรหัสผ่านใหม่
-                        </label>
-                        <input
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            type="password"
-                            required
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                            placeholder="••••••••"
-                            disabled={isLoading}
-                            minLength={8}
-                        />
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    กำลังบันทึก...
-                                </>
-                            ) : (
-                                '🔒 บันทึกรหัสผ่านใหม่'
-                            )}
-                        </button>
-                    </div>
-
-                    <div className="flex items-center justify-center space-x-2 text-sm">
-                        <Link href="/login" className="font-medium text-purple-600 hover:text-purple-500 transition-colors">
-                            ← กลับไปหน้าเข้าสู่ระบบ
-                        </Link>
-                    </div>
-                </form>
-            </div>
-        </div>
+      <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+        <div className="absolute inset-0 bg-[var(--background)]" />
+        <section className="page-shell relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-8 sm:py-12">
+          <section className="surface w-full max-w-[500px] p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
+            <p className="text-sm font-black uppercase text-[var(--primary)]">
+              Password updated
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-[var(--foreground)]">
+              Your password has been changed
+            </h1>
+            <p className="mt-3 text-sm text-[var(--text-muted)]">
+              Redirecting you to the login page.
+            </p>
+            <div className="mx-auto mt-6 h-10 w-10 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+          </section>
+        </section>
+      </div>
     );
+  }
+
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1542751371-adc38448a05e?w=2200&q=85')",
+        }}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,10,14,0.74)_0%,rgba(9,20,27,0.56)_48%,rgba(7,10,14,0.9)_100%)]" />
+
+      <section className="page-shell relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-8 sm:py-12">
+        <section className="surface w-full max-w-[500px] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl sm:p-7 lg:p-8">
+          <div className="mb-7">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-teal-300/30 bg-teal-300/[0.14] text-sm font-black text-[var(--primary)]">
+              CK
+            </div>
+            <p className="text-sm font-black uppercase text-[var(--primary)]">
+              Account recovery
+            </p>
+            <h1 className="mt-2 text-3xl font-black leading-tight text-[var(--foreground)]">
+              Set a new password
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+              Choose a strong password with at least 8 characters.
+            </p>
+          </div>
+
+          {error && (
+            <div className="admin-notice admin-notice-error mb-5 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <label className="grid gap-2" htmlFor="password">
+              <span className="text-sm font-bold text-[var(--text-muted)]">
+                New password
+              </span>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="input"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                disabled={isLoading}
+              />
+            </label>
+
+            <label className="grid gap-2" htmlFor="confirmPassword">
+              <span className="text-sm font-bold text-[var(--text-muted)]">
+                Confirm password
+              </span>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="input"
+                placeholder="Repeat your new password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                disabled={isLoading}
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-primary w-full py-3 disabled:opacity-50"
+            >
+              {isLoading ? 'Saving password...' : 'Save new password'}
+            </button>
+          </form>
+
+          <div className="mt-7 border-t border-[var(--border)] pt-5 text-center text-sm text-[var(--text-muted)]">
+            <Link
+              href="/login"
+              className="font-black text-[var(--primary)] hover:text-[var(--primary-hover)]"
+            >
+              Back to login
+            </Link>
+          </div>
+        </section>
+      </section>
+    </div>
+  );
 }

@@ -46,8 +46,12 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = __importStar(require("bcrypt"));
+const crypto_1 = require("crypto");
 const prisma_service_1 = require("../prisma/prisma.service");
 const email_service_1 = require("../email/email.service");
+const PASSWORD_RESET_SENT_MESSAGE = 'If this email exists, a password reset link has been sent.';
+const MAGIC_LINK_SENT_MESSAGE = 'If this email exists, a sign-in link has been sent.';
+const REGISTRATION_LINK_SENT_MESSAGE = 'Activation link sent. Please check your email to activate the account.';
 let AuthService = class AuthService {
     prisma;
     jwtService;
@@ -72,7 +76,7 @@ let AuthService = class AuthService {
                 name: dto.name,
             },
         });
-        const tokens = await this.generateTokens(user.id, user.email, user.role);
+        const tokens = this.generateTokens(user.id, user.email, user.role);
         return {
             user: {
                 id: user.id,
@@ -94,7 +98,7 @@ let AuthService = class AuthService {
         if (!passwordValid) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const tokens = await this.generateTokens(user.id, user.email, user.role);
+        const tokens = this.generateTokens(user.id, user.email, user.role);
         return {
             user: {
                 id: user.id,
@@ -121,7 +125,7 @@ let AuthService = class AuthService {
         }
         return user;
     }
-    async generateTokens(userId, email, role) {
+    generateTokens(userId, email, role) {
         const payload = { sub: userId, email, role };
         const accessToken = this.jwtService.sign(payload, {
             secret: process.env.JWT_SECRET || 'default-secret',
@@ -158,13 +162,11 @@ let AuthService = class AuthService {
             where: { email },
         });
         if (!user) {
-            return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์รีเซ็ตรหัสผ่านไปให้' };
+            return { message: PASSWORD_RESET_SENT_MESSAGE };
         }
-        const crypto = require('crypto');
-        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetToken = (0, crypto_1.randomBytes)(32).toString('hex');
         const hashedToken = await bcrypt.hash(resetToken, 10);
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 1);
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
         await this.prisma.user.update({
             where: { id: user.id },
             data: {
@@ -175,17 +177,13 @@ let AuthService = class AuthService {
         if (this.emailService.isConfigured()) {
             await this.emailService.sendPasswordResetEmail(email, resetToken, user.name);
         }
-        return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์รีเซ็ตรหัสผ่านไปให้' };
+        return { message: PASSWORD_RESET_SENT_MESSAGE };
     }
     async resetPassword(token, newPassword) {
         const users = await this.prisma.user.findMany({
             where: {
-                resetPasswordExpires: {
-                    gte: new Date(),
-                },
-                NOT: {
-                    resetPasswordToken: null,
-                },
+                resetPasswordExpires: { gte: new Date() },
+                NOT: { resetPasswordToken: null },
             },
         });
         let matchedUser = null;
@@ -197,7 +195,7 @@ let AuthService = class AuthService {
             }
         }
         if (!matchedUser) {
-            throw new common_1.UnauthorizedException('ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว');
+            throw new common_1.UnauthorizedException('This reset link is invalid or has expired.');
         }
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await this.prisma.user.update({
@@ -208,20 +206,18 @@ let AuthService = class AuthService {
                 resetPasswordExpires: null,
             },
         });
-        return { message: 'เปลี่ยนรหัสผ่านสำเร็จ' };
+        return { message: 'Password updated successfully.' };
     }
     async sendMagicLink(email) {
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
         if (!user) {
-            return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์ล็อกอินไปให้' };
+            return { message: MAGIC_LINK_SENT_MESSAGE };
         }
-        const crypto = require('crypto');
-        const magicToken = crypto.randomBytes(32).toString('hex');
+        const magicToken = (0, crypto_1.randomBytes)(32).toString('hex');
         const hashedToken = await bcrypt.hash(magicToken, 10);
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
         await this.prisma.user.update({
             where: { id: user.id },
             data: {
@@ -232,17 +228,13 @@ let AuthService = class AuthService {
         if (this.emailService.isConfigured()) {
             await this.emailService.sendMagicLinkEmail(email, magicToken, user.name);
         }
-        return { message: 'หากอีเมลนี้มีในระบบ เราจะส่งลิงก์ล็อกอินไปให้' };
+        return { message: MAGIC_LINK_SENT_MESSAGE };
     }
     async verifyMagicLink(token) {
         const users = await this.prisma.user.findMany({
             where: {
-                magicLinkExpires: {
-                    gte: new Date(),
-                },
-                NOT: {
-                    magicLinkToken: null,
-                },
+                magicLinkExpires: { gte: new Date() },
+                NOT: { magicLinkToken: null },
             },
         });
         let matchedUser = null;
@@ -254,7 +246,7 @@ let AuthService = class AuthService {
             }
         }
         if (!matchedUser) {
-            throw new common_1.UnauthorizedException('ลิงก์ล็อกอินไม่ถูกต้องหรือหมดอายุแล้ว');
+            throw new common_1.UnauthorizedException('This sign-in link is invalid or has expired.');
         }
         await this.prisma.user.update({
             where: { id: matchedUser.id },
@@ -263,7 +255,7 @@ let AuthService = class AuthService {
                 magicLinkExpires: null,
             },
         });
-        const tokens = await this.generateTokens(matchedUser.id, matchedUser.email, matchedUser.role);
+        const tokens = this.generateTokens(matchedUser.id, matchedUser.email, matchedUser.role);
         return {
             user: {
                 id: matchedUser.id,
@@ -279,14 +271,12 @@ let AuthService = class AuthService {
             where: { email },
         });
         if (existingUser) {
-            throw new common_1.ConflictException('อีเมลนี้มีผู้ใช้งานแล้ว กรุณาใช้ลิงก์ล้างรหัสผ่านแทน');
+            throw new common_1.ConflictException('Email already registered. Use the sign-in email link instead.');
         }
-        const crypto = require('crypto');
-        const magicToken = crypto.randomBytes(32).toString('hex');
+        const magicToken = (0, crypto_1.randomBytes)(32).toString('hex');
         const hashedToken = await bcrypt.hash(magicToken, 10);
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
-        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const tempPassword = (0, crypto_1.randomBytes)(16).toString('hex');
         const hashedPassword = await bcrypt.hash(tempPassword, 10);
         await this.prisma.user.create({
             data: {
@@ -300,7 +290,7 @@ let AuthService = class AuthService {
         if (this.emailService.isConfigured()) {
             await this.emailService.sendRegistrationMagicLinkEmail(email, magicToken, name);
         }
-        return { message: 'เราได้ส่งลิงก์ยืนยันไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบอีเมลเพื่อเปิดใช้งานบัญชี' };
+        return { message: REGISTRATION_LINK_SENT_MESSAGE };
     }
 };
 exports.AuthService = AuthService;
