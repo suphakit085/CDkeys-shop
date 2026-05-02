@@ -36,7 +36,7 @@ export class OrdersService {
   async findByUser(userId: string) {
     await this.orderExpirationService.expireUnpaidOrders(userId);
 
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: { userId },
       include: {
         orderItems: {
@@ -50,6 +50,8 @@ export class OrdersService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return orders.map((order) => this.hideUndeliveredKeys(order));
   }
 
   // Get single order details
@@ -74,7 +76,7 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    return order;
+    return this.hideUndeliveredKeys(order);
   }
 
   // Step 1: Create order and reserve keys
@@ -183,7 +185,7 @@ export class OrdersService {
       });
 
       if (cancelledOrder) {
-        return cancelledOrder;
+        return this.hideUndeliveredKeys(cancelledOrder);
       }
 
       throw new NotFoundException('Pending order not found');
@@ -203,7 +205,10 @@ export class OrdersService {
 
       await this.prisma.order.update({
         where: { id: orderId },
-        data: { status: OrderStatus.FAILED },
+        data: {
+          status: OrderStatus.FAILED,
+          paymentStatus: PaymentStatus.REJECTED,
+        },
       });
 
       return { success: false, message: 'Payment failed' };
@@ -220,7 +225,11 @@ export class OrdersService {
     // Update order status
     const completedOrder = await this.prisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.COMPLETED },
+      data: {
+        status: OrderStatus.COMPLETED,
+        paymentStatus: PaymentStatus.VERIFIED,
+        paidAt: new Date(),
+      },
       include: {
         orderItems: {
           include: {
@@ -265,7 +274,7 @@ export class OrdersService {
         ? await this.paymentService.generatePromptPayQR(total)
         : null;
 
-    return this.prisma.order.update({
+    const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         paymentMethod,
@@ -280,6 +289,8 @@ export class OrdersService {
       },
       include: this.customerOrderInclude(),
     });
+
+    return this.hideUndeliveredKeys(updatedOrder);
   }
 
   // Cancel a pending order (releases keys)
@@ -315,7 +326,7 @@ export class OrdersService {
     }
 
     // Update order status
-    return this.prisma.order.update({
+    const cancelledOrder = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.CANCELLED,
@@ -326,6 +337,8 @@ export class OrdersService {
       },
       include: this.customerOrderInclude(),
     });
+
+    return this.hideUndeliveredKeys(cancelledOrder);
   }
 
   async cancelOrderAsAdmin(orderId: string, adminId: string, reason?: string) {
@@ -408,6 +421,29 @@ export class OrdersService {
         },
       },
     } satisfies Prisma.OrderInclude;
+  }
+
+  private hideUndeliveredKeys<
+    T extends {
+      status: OrderStatus;
+      paymentStatus: PaymentStatus;
+      orderItems: Array<{ cdKey?: { keyCode: string } | null }>;
+    },
+  >(order: T) {
+    if (
+      order.status === OrderStatus.COMPLETED &&
+      order.paymentStatus === PaymentStatus.VERIFIED
+    ) {
+      return order;
+    }
+
+    return {
+      ...order,
+      orderItems: order.orderItems.map((item) => ({
+        ...item,
+        cdKey: null,
+      })),
+    };
   }
 
   private adminOrderInclude() {
