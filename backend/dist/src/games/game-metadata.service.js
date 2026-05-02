@@ -14,7 +14,6 @@ const env_1 = require("../common/env");
 let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
     logger = new common_1.Logger(GameMetadataService_1.name);
     rawgBaseUrl = 'https://api.rawg.io/api';
-    steamAppsCache = null;
     steamDetailsCache = new Map();
     async searchGames(query, pageSize = 12) {
         const trimmedQuery = this.validateSearchQuery(query);
@@ -65,31 +64,34 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
     }
     async searchSteamGames(query, pageSize = 8) {
         const trimmedQuery = this.validateSearchQuery(query);
-        const apps = await this.getSteamAppList();
-        const scored = apps
-            .map((app) => ({
-            app,
-            score: this.scoreTitleMatch(app.name, trimmedQuery),
+        const items = await this.searchSteamStore(trimmedQuery);
+        const scored = items
+            .map((item) => ({
+            item,
+            score: this.scoreTitleMatch(item.name || '', trimmedQuery),
         }))
             .filter((item) => item.score > 0)
-            .sort((a, b) => b.score - a.score || a.app.name.length - b.app.name.length)
+            .sort((a, b) => b.score - a.score ||
+            (a.item.name || '').length - (b.item.name || '').length)
             .slice(0, Math.max(8, pageSize * 2));
-        const details = await Promise.all(scored.map(async ({ app, score }) => {
-            const detail = await this.fetchSteamAppDetails(String(app.appid)).catch((error) => {
-                this.logger.warn(`Steam details unavailable for ${app.appid}: ${error}`);
+        const details = await Promise.all(scored.map(async ({ item, score }) => {
+            const appId = String(item.id);
+            const detail = await this.fetchSteamAppDetails(appId).catch((error) => {
+                this.logger.warn(`Steam details unavailable for ${appId}: ${error}`);
                 return null;
             });
-            return { app, detail, score };
+            return { item, detail, score };
         }));
         return details
             .filter(({ detail }) => !detail || detail.type === 'game')
-            .map(({ app, detail }) => ({
+            .map(({ item, detail }) => ({
             source: 'steam',
-            sourceId: String(app.appid),
-            title: detail?.name || app.name,
+            sourceId: String(item.id),
+            title: detail?.name || item.name || `Steam App ${item.id}`,
             imageUrl: detail?.header_image ||
                 detail?.capsule_imagev5 ||
                 detail?.capsule_image ||
+                item.tiny_image ||
                 undefined,
             releaseDate: this.parseSteamDate(detail?.release_date),
             genres: this.steamDescriptions(detail?.genres),
@@ -195,33 +197,28 @@ let GameMetadataService = GameMetadataService_1 = class GameMetadataService {
                 .slice(0, 6),
         };
     }
-    async getSteamAppList() {
-        const now = Date.now();
-        if (this.steamAppsCache && this.steamAppsCache.expiresAt > now) {
-            return this.steamAppsCache.apps;
-        }
+    async searchSteamStore(query) {
+        const url = new URL('https://store.steampowered.com/api/storesearch/');
+        url.searchParams.set('term', query);
+        url.searchParams.set('l', 'english');
+        url.searchParams.set('cc', 'US');
         let response;
         try {
-            response = await fetch('https://api.steampowered.com/ISteamApps/GetAppList/v2/');
+            response = await fetch(url);
         }
         catch (error) {
-            this.logger.error(`Steam app list request failed: ${error}`);
+            this.logger.error(`Steam store search request failed: ${error}`);
             throw new common_1.ServiceUnavailableException('Unable to reach Steam right now');
         }
         if (!response.ok) {
             const message = await response.text().catch(() => response.statusText);
-            this.logger.error(`Steam app list error ${response.status}: ${message}`);
-            throw new common_1.ServiceUnavailableException('Steam app list is unavailable');
+            this.logger.error(`Steam store search error ${response.status}: ${message}`);
+            throw new common_1.ServiceUnavailableException('Steam search is unavailable');
         }
         const payload = (await response.json());
-        const apps = (payload.applist?.apps || [])
-            .filter((app) => Number.isFinite(app.appid) && app.name?.trim())
-            .map((app) => ({ appid: app.appid, name: app.name.trim() }));
-        this.steamAppsCache = {
-            apps,
-            expiresAt: now + 24 * 60 * 60 * 1000,
-        };
-        return apps;
+        return (payload.items || []).filter((item) => item.type === 'app' &&
+            Number.isFinite(item.id) &&
+            Boolean(item.name?.trim()));
     }
     async fetchSteamAppDetails(appId) {
         const cached = this.steamDetailsCache.get(appId);

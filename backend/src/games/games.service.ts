@@ -151,10 +151,7 @@ export class GamesService {
   async create(dto: CreateGameDto) {
     try {
       return await this.prisma.game.create({
-        data: {
-          ...dto,
-          price: dto.price,
-        },
+        data: this.normalizeCreateGameInput(dto),
       });
     } catch (error) {
       this.handleGameWriteError(error);
@@ -167,7 +164,7 @@ export class GamesService {
     try {
       return await this.prisma.game.update({
         where: { id },
-        data: dto,
+        data: this.normalizeUpdateGameInput(dto),
       });
     } catch (error) {
       this.handleGameWriteError(error);
@@ -225,5 +222,48 @@ export class GamesService {
     }
 
     throw error;
+  }
+
+  private normalizeCreateGameInput(dto: CreateGameDto) {
+    const data: Prisma.GameUncheckedCreateInput = {
+      ...dto,
+      releaseDate: this.parseReleaseDate(dto.releaseDate),
+    };
+
+    if (!data.releaseDate) {
+      delete data.releaseDate;
+    }
+
+    return data;
+  }
+
+  private normalizeUpdateGameInput(dto: UpdateGameDto) {
+    const data: Prisma.GameUncheckedUpdateInput = {
+      ...dto,
+      releaseDate: this.parseReleaseDate(dto.releaseDate),
+    };
+
+    if (!data.releaseDate) {
+      delete data.releaseDate;
+    }
+
+    return data;
+  }
+
+  private parseReleaseDate(value?: string) {
+    if (!value?.trim()) {
+      return undefined;
+    }
+
+    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? `${value}T00:00:00.000Z`
+      : value;
+    const date = new Date(normalized);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid release date');
+    }
+
+    return date;
   }
 }

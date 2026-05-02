@@ -124,10 +124,7 @@ let GamesService = class GamesService {
     async create(dto) {
         try {
             return await this.prisma.game.create({
-                data: {
-                    ...dto,
-                    price: dto.price,
-                },
+                data: this.normalizeCreateGameInput(dto),
             });
         }
         catch (error) {
@@ -139,7 +136,7 @@ let GamesService = class GamesService {
         try {
             return await this.prisma.game.update({
                 where: { id },
-                data: dto,
+                data: this.normalizeUpdateGameInput(dto),
             });
         }
         catch (error) {
@@ -180,6 +177,39 @@ let GamesService = class GamesService {
             throw new common_1.ConflictException('A game with this title and platform already exists. Edit the existing game or choose another platform.');
         }
         throw error;
+    }
+    normalizeCreateGameInput(dto) {
+        const data = {
+            ...dto,
+            releaseDate: this.parseReleaseDate(dto.releaseDate),
+        };
+        if (!data.releaseDate) {
+            delete data.releaseDate;
+        }
+        return data;
+    }
+    normalizeUpdateGameInput(dto) {
+        const data = {
+            ...dto,
+            releaseDate: this.parseReleaseDate(dto.releaseDate),
+        };
+        if (!data.releaseDate) {
+            delete data.releaseDate;
+        }
+        return data;
+    }
+    parseReleaseDate(value) {
+        if (!value?.trim()) {
+            return undefined;
+        }
+        const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+            ? `${value}T00:00:00.000Z`
+            : value;
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) {
+            throw new common_1.BadRequestException('Invalid release date');
+        }
+        return date;
     }
 };
 exports.GamesService = GamesService;

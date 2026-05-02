@@ -162,4 +162,7 @@ export declare class GamesService {
     }>;
     getGenres(): Promise<string[]>;
     private handleGameWriteError;
+    private normalizeCreateGameInput;
+    private normalizeUpdateGameInput;
+    private parseReleaseDate;
 }

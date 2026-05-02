@@ -113,7 +113,7 @@ RAWG_API_KEY="..."
 
 For production email, verify your sending domain in Resend and use `EMAIL_FROM` from that verified domain. `ADMIN_EMAIL` is the private mailbox that receives new-order and PromptPay slip review notifications.
 
-`RAWG_API_KEY` enables RAWG results in the admin game import helper. Steam results work without an extra key, and the backend caches Steam's app list to keep searches fast. Create a RAWG key from [RAWG API Docs](https://rawg.io/apidocs), store it only in the Railway backend variables, then redeploy the backend.
+`RAWG_API_KEY` enables RAWG results in the admin game import helper. Steam results work without an extra key by using Steam Store search and app details. Create a RAWG key from [RAWG API Docs](https://rawg.io/apidocs), store it only in the Railway backend variables, then redeploy the backend.
 
 After Railway generates a backend domain, update the frontend variables in Vercel:
 

@@ -34,14 +34,13 @@ export type GameMetadataImport = {
 export declare class GameMetadataService {
     private readonly logger;
     private readonly rawgBaseUrl;
-    private steamAppsCache;
     private readonly steamDetailsCache;
     searchGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
     searchRawgGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
     searchSteamGames(query: string, pageSize?: number): Promise<GameMetadataSearchResult[]>;
     getRawgGame(rawgId: string): Promise<GameMetadataImport>;
     getSteamGame(appId: string): Promise<GameMetadataImport>;
-    private getSteamAppList;
+    private searchSteamStore;
     private fetchSteamAppDetails;
     private validateSearchQuery;
     private dedupeSearchResults;
