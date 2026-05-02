@@ -13,6 +13,88 @@ import {
   AdminStatCard,
 } from '@/components/admin/AdminUI';
 
+const keyHeaderNames = new Set([
+  'key',
+  'keys',
+  'keycode',
+  'cdkey',
+  'code',
+  'serial',
+  'license',
+  'licensekey',
+]);
+
+function normalizeCsvHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let insideQuotes = false;
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        cell += '"';
+        index++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !insideQuotes) {
+      row.push(cell.trim());
+      cell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        index++;
+      }
+      row.push(cell.trim());
+      if (row.some(Boolean)) {
+        rows.push(row);
+      }
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell.trim());
+  if (row.some(Boolean)) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function extractKeysFromCsv(text: string) {
+  const rows = parseCsv(text);
+  if (rows.length === 0) return [];
+
+  const headerIndex = rows[0].findIndex((cell) => keyHeaderNames.has(normalizeCsvHeader(cell)));
+  const dataRows = headerIndex >= 0 ? rows.slice(1) : rows;
+  const keyColumn = headerIndex >= 0 ? headerIndex : 0;
+
+  return [
+    ...new Set(
+      dataRows
+        .map((row) => row[keyColumn]?.trim())
+        .filter((key): key is string => Boolean(key)),
+    ),
+  ];
+}
+
 export default function AdminKeys() {
   const { user, token, isAdmin, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -25,6 +107,8 @@ export default function AdminKeys() {
     added: number;
     duplicates: number;
   } | null>(null);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvImportMessage, setCsvImportMessage] = useState('');
   const [error, setError] = useState('');
 
   const loadGames = useCallback(async () => {
@@ -90,6 +174,38 @@ export default function AdminKeys() {
     }
   };
 
+  const handleCsvImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !token || !selectedGame) return;
+
+    setError('');
+    setAddResult(null);
+    setCsvImportMessage('');
+    setIsImportingCsv(true);
+
+    try {
+      const text = await file.text();
+      const keyList = extractKeysFromCsv(text);
+
+      if (keyList.length === 0) {
+        throw new Error('No keys found in CSV. Use a key/keyCode column or put keys in the first column.');
+      }
+
+      const result = await keysApi.addKeys({ gameId: selectedGame, keys: keyList }, token);
+      setAddResult(result);
+      setCsvImportMessage(`Imported ${keyList.length} keys from ${file.name}.`);
+      await loadKeys();
+      await loadGames();
+    } catch (err) {
+      console.error('Failed to import CSV:', err);
+      setError(err instanceof Error ? err.message : 'Unable to import CSV');
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
+
   const handleDeleteKey = async (keyId: string) => {
     if (!token || !confirm('Delete this key?')) return;
     setError('');
@@ -132,6 +248,7 @@ export default function AdminKeys() {
           Added {addResult.added} keys. Skipped {addResult.duplicates} duplicates.
         </AdminNotice>
       )}
+      {csvImportMessage && <AdminNotice tone="success">{csvImportMessage}</AdminNotice>}
 
       <section className="admin-stat-grid">
         <AdminStatCard label="Total keys" value={keys.length} helper="Selected game" />
@@ -174,15 +291,27 @@ export default function AdminKeys() {
 
       <AdminPanel
         title="Bulk add keys"
-        description="Paste one key per line or separate keys with commas."
+        description="Paste one key per line, separate keys with commas, or import a CSV file."
         actions={
-          <button
-            onClick={handleBulkAdd}
-            disabled={!selectedGame || !bulkKeys.trim()}
-            className="btn-primary px-5 disabled:opacity-40"
-          >
-            Add keys
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <label className={`btn-secondary cursor-pointer px-5 ${!selectedGame || isImportingCsv ? 'pointer-events-none opacity-40' : ''}`}>
+              {isImportingCsv ? 'Importing...' : 'Import CSV'}
+              <input
+                type="file"
+                accept=".csv,.txt,text/csv"
+                onChange={handleCsvImport}
+                disabled={!selectedGame || isImportingCsv}
+                className="hidden"
+              />
+            </label>
+            <button
+              onClick={handleBulkAdd}
+              disabled={!selectedGame || !bulkKeys.trim()}
+              className="btn-primary px-5 disabled:opacity-40"
+            >
+              Add keys
+            </button>
+          </div>
         }
       >
         <textarea
@@ -191,6 +320,12 @@ export default function AdminKeys() {
           placeholder="XXXX-XXXX-XXXX-XXXX&#10;YYYY-YYYY-YYYY-YYYY"
           className="input min-h-[160px] font-mono text-sm"
         />
+        <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-sm leading-6 text-[color:var(--text-muted)]">
+          CSV supports a <span className="font-bold text-[color:var(--foreground)]">key</span>,{' '}
+          <span className="font-bold text-[color:var(--foreground)]">keyCode</span>,{' '}
+          <span className="font-bold text-[color:var(--foreground)]">cdKey</span>, or{' '}
+          <span className="font-bold text-[color:var(--foreground)]">code</span> column. Without a header, the first column is imported.
+        </div>
       </AdminPanel>
 
       <AdminPanel
