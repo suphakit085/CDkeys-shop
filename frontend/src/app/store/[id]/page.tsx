@@ -242,7 +242,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                     <section className="min-w-0">
                         <div className="min-w-0">
                             <div className="overflow-hidden rounded-lg bg-slate-900 shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
-                                <div className="relative aspect-[16/10] min-h-[320px] bg-slate-900 xl:min-h-[520px]">
+                                <div className="relative aspect-video bg-slate-900">
                                     {activeImageSrc ? (
                                         <>
                                             <img src={activeImageSrc} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl" />
@@ -270,7 +270,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                                         <button
                                             key={image}
                                             onClick={() => setActiveImage(index)}
-                                            className={`h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg border bg-white transition ${activeImage === index ? 'border-teal-500 ring-2 ring-teal-100' : 'border-slate-200 opacity-70 hover:opacity-100'}`}
+                                            className={`h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg border bg-white transition ${activeImage === index ? 'border-teal-500 ring-2 ring-teal-100' : 'border-slate-200 opacity-70 hover:opacity-100'}`}
                                             aria-label={`เลือกภาพที่ ${index + 1}`}
                                         >
                                             <img src={image} alt="" className="h-full w-full object-cover" />
@@ -307,11 +307,15 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                     </section>
 
                     <aside className="product-buy-panel h-fit rounded-lg border border-slate-200 bg-slate-50 p-5 xl:sticky xl:top-24">
-                        <div className="mb-5 overflow-hidden rounded-lg bg-slate-900">
+                        <div className="relative mb-5 aspect-video overflow-hidden rounded-lg bg-slate-900">
                             {gameIconSrc ? (
-                                <img src={gameIconSrc} alt={game.title} className="h-28 w-full object-cover" />
+                                <>
+                                    <img src={gameIconSrc} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" />
+                                    <div className="absolute inset-0 bg-slate-950/35" />
+                                    <img src={gameIconSrc} alt={game.title} className="absolute inset-0 z-10 h-full w-full object-contain" />
+                                </>
                             ) : (
-                                <div className="flex h-28 items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-3xl font-black text-white/30">
+                                <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-3xl font-black text-white/30">
                                     {fallbackInitials(game.title)}
                                 </div>
                             )}
