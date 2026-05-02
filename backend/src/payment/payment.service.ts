@@ -343,6 +343,71 @@ export class PaymentService {
     }
   }
 
+  async resendCompletedOrderEmails(
+    orderId: string,
+    adminId: string,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: true,
+        orderItems: {
+          include: {
+            game: true,
+            cdKey: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (
+      order.status !== OrderStatus.COMPLETED ||
+      order.paymentStatus !== PaymentStatus.VERIFIED
+    ) {
+      throw new BadRequestException(
+        'Only completed paid orders can resend CD keys',
+      );
+    }
+
+    const deliveredKeyCount = order.orderItems.filter(
+      (item) => item.cdKey,
+    ).length;
+
+    if (deliveredKeyCount === 0) {
+      throw new BadRequestException('This order has no delivered CD keys');
+    }
+
+    if (!this.emailService.isConfigured()) {
+      throw new BadRequestException('Email service is not configured');
+    }
+
+    await this.emailService.sendCdKeysEmail({
+      orderId: order.id,
+      customerEmail: order.user.email,
+      customerName: order.user.name,
+      items: order.orderItems
+        .filter((item) => item.cdKey)
+        .map((item) => ({
+          gameTitle: item.game.title,
+          platform: item.game.platform,
+          cdKey: item.cdKey!.keyCode,
+        })),
+      total: Number(order.total),
+    });
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        verifiedBy: adminId,
+        verifiedAt: new Date(),
+      },
+    });
+  }
+
   async createStripeCheckoutSession(
     orderId: string,
     userId: string,

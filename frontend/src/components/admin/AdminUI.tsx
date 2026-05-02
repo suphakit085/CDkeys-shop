@@ -35,6 +35,7 @@ type AdminNoticeProps = {
 
 const navItems = [
   { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/games', label: 'Games' },
   { href: '/admin/keys', label: 'Keys' },
   { href: '/admin/verify-payments', label: 'Payments' },

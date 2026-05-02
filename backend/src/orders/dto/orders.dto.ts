@@ -9,6 +9,8 @@ import {
   IsBoolean,
   ArrayNotEmpty,
   IsEnum,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
@@ -48,4 +50,11 @@ export class ProcessPaymentDto {
 export class ChangePaymentMethodDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
+}
+
+export class AdminCancelOrderDto {
+  @IsString()
+  @MaxLength(240)
+  @IsOptional()
+  reason?: string;
 }

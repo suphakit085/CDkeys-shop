@@ -328,8 +328,91 @@ export class OrdersService {
     });
   }
 
+  async cancelOrderAsAdmin(orderId: string, adminId: string, reason?: string) {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId);
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        orderItems: { select: { id: true } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      return this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: this.adminOrderInclude(),
+      });
+    }
+
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Only pending orders can be cancelled');
+    }
+
+    if (order.paymentStatus !== PaymentStatus.PENDING) {
+      throw new BadRequestException(
+        'Uploaded slips should be rejected from payment review instead',
+      );
+    }
+
+    const orderItemIds = order.orderItems.map((item) => item.id);
+
+    await this.prisma.$transaction(async (tx) => {
+      if (orderItemIds.length > 0) {
+        await tx.cdKey.updateMany({
+          where: {
+            orderItemId: { in: orderItemIds },
+            status: 'RESERVED',
+          },
+          data: {
+            status: 'AVAILABLE',
+            reservedAt: null,
+            orderItemId: null,
+          },
+        });
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          paymentStatus: PaymentStatus.CANCELLED,
+          paymentSlipUrl: null,
+          qrCodeData: null,
+          promptpayRef: reason || null,
+          stripePaymentStatus: 'cancelled_by_admin',
+          verifiedBy: adminId,
+          verifiedAt: new Date(),
+        },
+      });
+    });
+
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: this.adminOrderInclude(),
+    });
+  }
+
   private customerOrderInclude() {
     return {
+      orderItems: {
+        include: {
+          game: {
+            select: { id: true, title: true, platform: true, imageUrl: true },
+          },
+          cdKey: { select: { keyCode: true } },
+        },
+      },
+    } satisfies Prisma.OrderInclude;
+  }
+
+  private adminOrderInclude() {
+    return {
+      user: { select: { email: true, name: true } },
       orderItems: {
         include: {
           game: {
@@ -372,17 +455,7 @@ export class OrdersService {
       ];
     }
 
-    const include = {
-      user: { select: { email: true, name: true } },
-      orderItems: {
-        include: {
-          game: {
-            select: { id: true, title: true, platform: true, imageUrl: true },
-          },
-          cdKey: { select: { keyCode: true } },
-        },
-      },
-    } satisfies Prisma.OrderInclude;
+    const include = this.adminOrderInclude();
 
     const pagination = this.getPagination(filters);
 

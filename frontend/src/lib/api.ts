@@ -271,6 +271,9 @@ export const ordersApi = {
     changePaymentMethod: (id: string, paymentMethod: PaymentMethod, token: string) =>
         request<Order>(`/orders/${id}/payment-method`, { method: 'PATCH', body: { paymentMethod }, token }),
 
+    adminCancel: (id: string, reason: string | undefined, token: string) =>
+        request<Order>(`/orders/admin/${id}/cancel`, { method: 'PATCH', body: { reason }, token }),
+
     // Admin
     getAll: (token: string) =>
         request<Order[]>('/orders/admin/all', { token }),
@@ -312,6 +315,9 @@ export const paymentApi = {
 
     verify: (orderId: string, token: string) =>
         request<{ message: string }>(`/payment/verify/${orderId}`, { method: 'POST', token }),
+
+    resendKeys: (orderId: string, token: string) =>
+        request<{ message: string }>(`/payment/resend-keys/${orderId}`, { method: 'POST', token }),
 
     reject: (orderId: string, reason: string, token: string) =>
         request<{ message: string }>(`/payment/reject/${orderId}`, { method: 'POST', body: { reason }, token }),
@@ -472,6 +478,9 @@ export interface Order {
     stripePaymentIntentId?: string;
     stripePaymentStatus?: string;
     paidAt?: string;
+    verifiedAt?: string;
+    updatedAt?: string;
+    promptpayRef?: string;
     createdAt: string;
     user?: { email: string; name: string };
     orderItems: OrderItem[];

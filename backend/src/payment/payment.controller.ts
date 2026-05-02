@@ -175,6 +175,17 @@ export class PaymentController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @Post('resend-keys/:orderId')
+  async resendKeys(
+    @Param('orderId') orderId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    await this.paymentService.resendCompletedOrderEmails(orderId, req.user.id);
+    return { message: 'CD keys email resent successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Get('pending')
   async getPendingPayments() {
     return this.paymentService.getPendingPayments();

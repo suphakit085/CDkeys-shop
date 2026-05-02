@@ -74,6 +74,9 @@ export default function AdminDashboard() {
       description="Monitor revenue, payment flow, and key inventory from one quiet command center."
       actions={
         <>
+          <Link href="/admin/orders" className="btn-secondary px-4">
+            Manage orders
+          </Link>
           <Link href="/admin/games" className="btn-secondary px-4">
             Manage games
           </Link>

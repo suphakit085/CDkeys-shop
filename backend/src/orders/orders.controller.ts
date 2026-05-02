@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import {
+  AdminCancelOrderDto,
   ChangePaymentMethodDto,
   CreateOrderDto,
   ProcessPaymentDto,
@@ -57,6 +58,17 @@ export class OrdersController {
   @Roles(Role.ADMIN)
   async getSalesStats() {
     return this.ordersService.getSalesStats();
+  }
+
+  @Patch('admin/:id/cancel')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async cancelOrderAsAdmin(
+    @Param('id') id: string,
+    @Body() dto: AdminCancelOrderDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.ordersService.cancelOrderAsAdmin(id, req.user.id, dto.reason);
   }
 
   @Get(':id')
