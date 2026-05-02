@@ -211,6 +211,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     const inStock = game.availableKeys > 0;
     const maxQty = Math.max(0, Math.min(game.availableKeys - inCartQty, 10));
     const activeImageSrc = allImages[activeImage];
+    const gameIconSrc = game.imageUrl ? getUploadUrl(game.imageUrl) : allImages[0];
     const features = game.features?.length
         ? game.features
         : ['ส่งคีย์ดิจิทัลหลังยืนยันการชำระเงิน', `เปิดใช้งานบน ${platformLabels[game.platform]}`, 'ดูคีย์ย้อนหลังได้จากหน้าคำสั่งซื้อ'];
@@ -243,14 +244,18 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             <div className="overflow-hidden rounded-lg bg-slate-900 shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
                                 <div className="relative aspect-[16/10] min-h-[320px] bg-slate-900 xl:min-h-[520px]">
                                     {activeImageSrc ? (
-                                        <img src={activeImageSrc} alt={game.title} className="absolute inset-0 h-full w-full object-cover" />
+                                        <>
+                                            <img src={activeImageSrc} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl" />
+                                            <div className="absolute inset-0 bg-slate-950/45" />
+                                            <img src={activeImageSrc} alt={game.title} className="absolute inset-0 z-10 h-full w-full object-contain" />
+                                        </>
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-6xl font-black text-white/30">
                                             {fallbackInitials(game.title)}
                                         </div>
                                     )}
-                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 to-transparent" />
-                                    <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-black/70 to-transparent" />
+                                    <div className="absolute left-4 top-4 z-30 flex flex-wrap gap-2">
                                         <span className={`badge ${platformStyles[game.platform]}`}>{platformLabels[game.platform]}</span>
                                         <span className={`badge ${inStock ? 'badge-available' : 'badge-sold'}`}>
                                             {inStock ? 'พร้อมส่ง' : 'สินค้าหมด'}
@@ -303,8 +308,8 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
 
                     <aside className="product-buy-panel h-fit rounded-lg border border-slate-200 bg-slate-50 p-5 xl:sticky xl:top-24">
                         <div className="mb-5 overflow-hidden rounded-lg bg-slate-900">
-                            {activeImageSrc ? (
-                                <img src={activeImageSrc} alt={game.title} className="h-28 w-full object-cover" />
+                            {gameIconSrc ? (
+                                <img src={gameIconSrc} alt={game.title} className="h-28 w-full object-cover" />
                             ) : (
                                 <div className="flex h-28 items-center justify-center bg-[linear-gradient(135deg,#101827,#243244)] text-3xl font-black text-white/30">
                                     {fallbackInitials(game.title)}
