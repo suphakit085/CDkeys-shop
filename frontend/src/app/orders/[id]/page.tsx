@@ -4,7 +4,7 @@
 import { useState, useEffect, use, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ordersApi, paymentApi, Order, OrderItem } from '@/lib/api';
+import { ordersApi, paymentApi, Order, OrderItem, PaymentMethod } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import MoneyAmount from '@/components/MoneyAmount';
@@ -47,6 +47,19 @@ function getStatusMeta(status: Order['status'] | string) {
         title: 'กำลังประมวลผลคำสั่งซื้อ',
         note: 'โปรดตรวจสอบสถานะอีกครั้ง',
     };
+}
+
+function getOrderStatusMeta(order: Order) {
+    if (order.status === 'FAILED' && order.stripePaymentStatus === 'cancelled_by_customer') {
+        return {
+            label: 'ยกเลิกแล้ว',
+            badge: 'badge-sold',
+            title: 'คำสั่งซื้อถูกยกเลิกแล้ว',
+            note: 'คีย์ที่จองไว้ถูกปล่อยกลับเข้าสต็อกแล้ว',
+        };
+    }
+
+    return getStatusMeta(order.status);
 }
 
 function getPlatformBadge(platform: string) {
@@ -116,6 +129,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRestartingStripe, setIsRestartingStripe] = useState(false);
+    const [isSwitchingPayment, setIsSwitchingPayment] = useState(false);
+    const [isCancellingOrder, setIsCancellingOrder] = useState(false);
     const [stripeError, setStripeError] = useState('');
     const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
     const [copiedKeyId, setCopiedKeyId] = useState('');
@@ -143,7 +158,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         }
     }, [user, token, authLoading, id, router, loadOrder]);
 
-    const meta = order ? getStatusMeta(order.status) : null;
+    const meta = order ? getOrderStatusMeta(order) : null;
     const timeline = useMemo(() => {
         if (!order) return [];
         const paid = order.status === 'COMPLETED';
@@ -187,6 +202,59 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         } catch (err) {
             setStripeError(err instanceof Error ? err.message : 'Unable to restart Stripe checkout');
             setIsRestartingStripe(false);
+        }
+    };
+
+    const changePendingPaymentMethod = async (method: PaymentMethod) => {
+        if (!order || !token) return;
+
+        if (order.status !== 'PENDING' || order.paymentStatus !== 'PENDING') {
+            setStripeError('เปลี่ยนวิธีชำระเงินได้เฉพาะคำสั่งซื้อที่ยังไม่ได้ส่งยอดชำระ');
+            return;
+        }
+
+        setIsSwitchingPayment(true);
+        setStripeError('');
+
+        try {
+            const updated = await ordersApi.changePaymentMethod(order.id, method, token);
+            setOrder(updated);
+
+            if (method === 'CREDIT_CARD') {
+                const checkout = await paymentApi.createStripeCheckout(order.id, token);
+                window.location.href = checkout.url;
+                return;
+            }
+
+            router.push(`/checkout/promptpay/${order.id}`);
+        } catch (err) {
+            setStripeError(err instanceof Error ? err.message : 'เปลี่ยนวิธีชำระเงินไม่สำเร็จ');
+        } finally {
+            setIsSwitchingPayment(false);
+        }
+    };
+
+    const cancelPendingOrder = async () => {
+        if (!order || !token) return;
+
+        if (order.status !== 'PENDING' || order.paymentStatus !== 'PENDING') {
+            setStripeError('ยกเลิกได้เฉพาะคำสั่งซื้อที่ยังไม่ได้ส่งยอดชำระ');
+            return;
+        }
+
+        const confirmed = window.confirm('ยกเลิกคำสั่งซื้อนี้หรือไม่? คีย์ที่จองไว้จะถูกปล่อยกลับเข้าสต็อก');
+        if (!confirmed) return;
+
+        setIsCancellingOrder(true);
+        setStripeError('');
+
+        try {
+            const cancelled = await ordersApi.cancel(order.id, token);
+            setOrder(cancelled);
+        } catch (err) {
+            setStripeError(err instanceof Error ? err.message : 'ยกเลิกคำสั่งซื้อไม่สำเร็จ');
+        } finally {
+            setIsCancellingOrder(false);
         }
     };
 
@@ -243,7 +311,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                             {order.status === 'PENDING' && order.paymentMethod === 'CREDIT_CARD' && (
                                 <div className="border-b border-[var(--border)] p-5">
                                     <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-4">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                             <div>
                                                 <p className="font-black text-[var(--warning)]">รอชำระเงินผ่าน Stripe</p>
                                                 <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -253,13 +321,33 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                                     <p className="mt-2 text-sm font-bold text-[var(--error)]">{stripeError}</p>
                                                 )}
                                             </div>
-                                            <button
-                                                onClick={restartStripeCheckout}
-                                                disabled={isRestartingStripe}
-                                                className="btn-primary px-5 disabled:opacity-50"
-                                            >
-                                                {isRestartingStripe ? 'กำลังเปิด Stripe' : 'ชำระเงินต่อ'}
-                                            </button>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    onClick={restartStripeCheckout}
+                                                    disabled={isRestartingStripe || isSwitchingPayment || isCancellingOrder}
+                                                    className="btn-primary px-5 disabled:opacity-50"
+                                                >
+                                                    {isRestartingStripe ? 'กำลังเปิด Stripe' : 'ชำระเงินต่อ'}
+                                                </button>
+                                                {order.paymentStatus === 'PENDING' && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => changePendingPaymentMethod('PROMPTPAY')}
+                                                            disabled={isRestartingStripe || isSwitchingPayment || isCancellingOrder}
+                                                            className="btn-secondary px-5 disabled:opacity-50"
+                                                        >
+                                                            {isSwitchingPayment ? 'กำลังเปลี่ยน...' : 'เปลี่ยนเป็น PromptPay'}
+                                                        </button>
+                                                        <button
+                                                            onClick={cancelPendingOrder}
+                                                            disabled={isRestartingStripe || isSwitchingPayment || isCancellingOrder}
+                                                            className="rounded-lg border border-red-400/40 px-5 py-3 font-black text-[var(--error)] transition hover:bg-red-400/10 disabled:opacity-50"
+                                                        >
+                                                            {isCancellingOrder ? 'กำลังยกเลิก...' : 'ยกเลิก order'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -267,14 +355,37 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
                             {order.status === 'PENDING' && order.paymentMethod !== 'CREDIT_CARD' && (
                                 <div className="border-b border-[var(--border)] p-5">
-                                    <div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 lg:flex-row lg:items-center lg:justify-between">
                                         <div>
                                             <p className="font-black">รอการชำระเงินผ่าน PromptPay</p>
                                             <p className="mt-1 text-sm text-[var(--text-muted)]">อัปโหลดสลิปหรือกลับไปหน้าชำระเงินของคำสั่งซื้อนี้</p>
+                                            {stripeError && (
+                                                <p className="mt-2 text-sm font-bold text-[var(--error)]">{stripeError}</p>
+                                            )}
                                         </div>
-                                        <Link href={`/checkout/promptpay/${order.id}`} className="btn-primary px-5">
-                                            ไปหน้าชำระเงิน
-                                        </Link>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Link href={`/checkout/promptpay/${order.id}`} className="btn-primary px-5">
+                                                ไปหน้าชำระเงิน
+                                            </Link>
+                                            {order.paymentStatus === 'PENDING' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => changePendingPaymentMethod('CREDIT_CARD')}
+                                                        disabled={isRestartingStripe || isSwitchingPayment || isCancellingOrder}
+                                                        className="btn-secondary px-5 disabled:opacity-50"
+                                                    >
+                                                        {isSwitchingPayment ? 'กำลังเปิด Stripe...' : 'จ่ายด้วย Stripe'}
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelPendingOrder}
+                                                        disabled={isRestartingStripe || isSwitchingPayment || isCancellingOrder}
+                                                        className="rounded-lg border border-red-400/40 px-5 py-3 font-black text-[var(--error)] transition hover:bg-red-400/10 disabled:opacity-50"
+                                                    >
+                                                        {isCancellingOrder ? 'กำลังยกเลิก...' : 'ยกเลิก order'}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}

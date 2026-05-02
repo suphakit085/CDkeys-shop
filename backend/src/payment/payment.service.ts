@@ -96,6 +96,12 @@ export class PaymentService {
       );
     }
 
+    if (order.paymentMethod !== PaymentMethod.PROMPTPAY) {
+      throw new BadRequestException(
+        'This order is not configured for PromptPay',
+      );
+    }
+
     // Update slip URL first
     await this.prisma.order.update({
       where: { id: orderId },
@@ -209,6 +215,7 @@ export class PaymentService {
       stripeCheckoutSessionId?: string;
       stripePaymentIntentId?: string;
       stripePaymentStatus?: string;
+      paymentMethod?: PaymentMethod;
       allowAlreadyVerified?: boolean;
     } = {},
   ): Promise<boolean> {
@@ -256,6 +263,7 @@ export class PaymentService {
           stripeCheckoutSessionId: options.stripeCheckoutSessionId,
           stripePaymentIntentId: options.stripePaymentIntentId,
           stripePaymentStatus: options.stripePaymentStatus,
+          paymentMethod: options.paymentMethod,
           verifiedBy,
           verifiedAt: new Date(),
         },
@@ -471,8 +479,11 @@ export class PaymentService {
       throw new NotFoundException('Order not found for Stripe checkout');
     }
 
-    if (order.paymentMethod !== PaymentMethod.CREDIT_CARD) {
-      throw new BadRequestException('Order is not a Stripe order');
+    if (order.status !== 'PENDING') {
+      this.logger.warn(
+        `Ignoring Stripe checkout ${session.id} for non-pending order ${order.id}`,
+      );
+      return;
     }
 
     if (session.amount_total !== null && session.amount_total !== undefined) {
@@ -488,6 +499,7 @@ export class PaymentService {
       stripeCheckoutSessionId: session.id,
       stripePaymentIntentId: session.payment_intent || undefined,
       stripePaymentStatus: session.payment_status || 'paid',
+      paymentMethod: PaymentMethod.CREDIT_CARD,
       allowAlreadyVerified: true,
     });
     if (marked) {

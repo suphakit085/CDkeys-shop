@@ -268,6 +268,9 @@ export const ordersApi = {
     cancel: (id: string, token: string) =>
         request<Order>(`/orders/${id}`, { method: 'DELETE', token }),
 
+    changePaymentMethod: (id: string, paymentMethod: PaymentMethod, token: string) =>
+        request<Order>(`/orders/${id}/payment-method`, { method: 'PATCH', body: { paymentMethod }, token }),
+
     // Admin
     getAll: (token: string) =>
         request<Order[]>('/orders/admin/all', { token }),
@@ -293,25 +296,12 @@ export const paymentApi = {
         const formData = new FormData();
         formData.append('slip', file);
 
-        const response = await fetch(`${API_URL}/payment/promptpay/upload-slip/${orderId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            },
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: 'Upload failed' }));
-            throw new Error(error.message);
-        }
-
-        return response.json() as Promise<{
+        return requestFormData<{
             message: string;
             slipUrl: string;
             autoVerified: boolean;
             slipData?: { amount?: number; transRef?: string };
-        }>;
+        }>(`/payment/promptpay/upload-slip/${orderId}`, formData, { token });
     },
 
     createStripeCheckout: (orderId: string, token: string) =>

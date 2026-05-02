@@ -44,3 +44,8 @@ export class ProcessPaymentDto {
   @IsOptional()
   simulateFail?: boolean;
 }
+
+export class ChangePaymentMethodDto {
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+}

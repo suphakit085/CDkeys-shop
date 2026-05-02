@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import type { FileFilterCallback } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -23,6 +22,7 @@ import { PaymentService, SlipUploadResult } from './payment.service';
 import { extname } from 'path';
 import { Request as ExpressRequest } from 'express';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { createImageFileFilter } from '../common/image-file-filter';
 
 type RawBodyRequest = ExpressRequest & {
   rawBody?: Buffer;
@@ -34,13 +34,7 @@ const multerOptions = {
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
-  fileFilter: (_req, file: Express.Multer.File, cb: FileFilterCallback) => {
-    if (file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
-      cb(null, true);
-    } else {
-      cb(new BadRequestException('Only image files allowed'));
-    }
-  },
+  fileFilter: createImageFileFilter(),
 };
 
 @Controller('payment')

@@ -219,6 +219,48 @@ export class OrdersService {
     };
   }
 
+  async changePaymentMethod(
+    orderId: string,
+    userId: string,
+    paymentMethod: PaymentMethod,
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId, status: OrderStatus.PENDING },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pending order not found');
+    }
+
+    if (order.paymentStatus !== PaymentStatus.PENDING) {
+      throw new BadRequestException(
+        'Payment method can only be changed before payment is submitted',
+      );
+    }
+
+    const total = Number(order.total);
+    const qrCodeData =
+      paymentMethod === PaymentMethod.PROMPTPAY
+        ? await this.paymentService.generatePromptPayQR(total)
+        : null;
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentMethod,
+        paymentStatus: PaymentStatus.PENDING,
+        paymentSlipUrl: null,
+        qrCodeData,
+        promptpayRef: null,
+        stripeCheckoutSessionId: null,
+        stripePaymentIntentId: null,
+        stripePaymentStatus:
+          paymentMethod === PaymentMethod.CREDIT_CARD ? 'unpaid' : null,
+      },
+      include: this.customerOrderInclude(),
+    });
+  }
+
   // Cancel a pending order (releases keys)
   async cancelOrder(orderId: string, userId: string) {
     const order = await this.prisma.order.findFirst({
@@ -230,6 +272,12 @@ export class OrdersService {
 
     if (!order) {
       throw new NotFoundException('Pending order not found');
+    }
+
+    if (order.paymentStatus !== PaymentStatus.PENDING) {
+      throw new BadRequestException(
+        'Only unpaid orders can be cancelled by the customer',
+      );
     }
 
     // Release keys
@@ -246,8 +294,28 @@ export class OrdersService {
     // Update order status
     return this.prisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.FAILED },
+      data: {
+        status: OrderStatus.FAILED,
+        paymentStatus: PaymentStatus.REJECTED,
+        paymentSlipUrl: null,
+        qrCodeData: null,
+        stripePaymentStatus: 'cancelled_by_customer',
+      },
+      include: this.customerOrderInclude(),
     });
+  }
+
+  private customerOrderInclude() {
+    return {
+      orderItems: {
+        include: {
+          game: {
+            select: { id: true, title: true, platform: true, imageUrl: true },
+          },
+          cdKey: { select: { keyCode: true } },
+        },
+      },
+    } satisfies Prisma.OrderInclude;
   }
 
   // Admin: get all orders
