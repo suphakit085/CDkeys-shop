@@ -6,6 +6,7 @@ import { Game, gamesApi, Platform } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useCart } from '@/contexts/CartContext';
 import { formatMoney } from '@/lib/currency';
+import MoneyAmount from '@/components/MoneyAmount';
 
 const platformStyles: Record<Platform, string> = {
     STEAM: 'badge-steam',
@@ -238,8 +239,8 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <main className="page-shell py-6">
-                <div className="product-hero-card grid gap-6 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.1)] xl:grid-cols-[minmax(0,1fr)_480px]">
-                    <section className="min-w-0">
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_460px] xl:items-start">
+                    <section className="product-hero-card min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.1)]">
                         <div className="min-w-0">
                             <div className="overflow-hidden rounded-lg bg-slate-900 shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
                                 <div className="relative aspect-video bg-slate-900">
@@ -265,7 +266,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             </div>
 
                             {allImages.length > 1 && (
-                                <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                     {allImages.map((image, index) => (
                                         <button
                                             key={image}
@@ -306,8 +307,8 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </section>
 
-                    <aside className="product-buy-panel h-fit rounded-lg border border-slate-200 bg-slate-50 p-5 xl:sticky xl:top-24">
-                        <div className="relative mb-5 aspect-video overflow-hidden rounded-lg bg-slate-900">
+                    <aside className="product-buy-panel h-fit rounded-lg border border-slate-200 bg-slate-50 p-4 xl:sticky xl:top-24">
+                        <div className="relative mb-4 h-28 overflow-hidden rounded-lg bg-slate-900">
                             {gameIconSrc ? (
                                 <>
                                     <img src={gameIconSrc} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" />
@@ -330,12 +331,12 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             </span>
                         </div>
 
-                        <h1 className="mt-4 text-3xl font-black leading-tight text-slate-950">{game.title}</h1>
+                        <h1 className="mt-4 text-2xl font-black leading-tight text-slate-950 md:text-3xl">{game.title}</h1>
                         {game.description && (
-                            <p className="mt-3 text-sm leading-6 text-slate-600">{game.description}</p>
+                            <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{game.description}</p>
                         )}
 
-                        <div className="mt-5 rounded-lg bg-[#1d3672] p-4 text-white">
+                        <div className="mt-4 rounded-lg bg-[#1d3672] p-3 text-white">
                             <p className="text-sm font-black">แพลตฟอร์มเกม</p>
                             <span className={`badge ${platformStyles[game.platform]} mt-3`}>{platformLabels[game.platform]}</span>
                         </div>
@@ -352,20 +353,20 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                             <span>{Math.max(1200, game.availableKeys * 97)} views</span>
                         </div>
 
-                        <div className="mt-5 space-y-1 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">
+                        <div className="mt-4 space-y-1 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">
                             <p><span className="font-black text-slate-900">Publisher:</span> {game.publisher || 'Not specified'}</p>
                             <p><span className="font-black text-slate-900">Developer:</span> {game.developer || 'Not specified'}</p>
                             <p><span className="font-black text-slate-900">Release Date:</span> {formatDate(game.releaseDate)}</p>
                         </div>
                         <p className="text-sm font-bold text-slate-500">ราคาสินค้า</p>
                         <div className="mt-1 flex items-end justify-between gap-4">
-                            <p className="text-4xl font-black text-slate-950">{formatMoney(game.price)}</p>
+                            <MoneyAmount value={game.price} size="xl" />
                             <span className={`rounded-full px-3 py-1 text-xs font-black ${inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                                 {inStock ? `${game.availableKeys} คีย์` : 'หมด'}
                             </span>
                         </div>
 
-                        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <div className="grid gap-3 text-sm">
                                 <div className="flex items-center justify-between gap-4">
                                     <span className="text-slate-500">รูปแบบสินค้า</span>
@@ -383,7 +384,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
 
                         {inStock && (
-                            <div className="mt-5 flex items-center justify-between gap-4">
+                            <div className="mt-4 flex items-center justify-between gap-4">
                                 <span className="text-sm font-black text-slate-700">จำนวน</span>
                                 <div className="grid grid-cols-[42px_56px_42px] overflow-hidden rounded-lg border border-slate-200 bg-white">
                                     <button
@@ -408,7 +409,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         )}
 
                         {inCartQty > 0 && (
-                            <p className="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-center text-sm font-bold text-teal-700">
+                            <p className="mt-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-center text-sm font-bold text-teal-700">
                                 มีในตะกร้าแล้ว {inCartQty} ชิ้น
                             </p>
                         )}
@@ -416,7 +417,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                         <button
                             onClick={addSelectionToCart}
                             disabled={!inStock || maxQty <= 0}
-                            className="mt-5 h-12 w-full rounded-lg bg-teal-500 px-5 text-base font-black text-white transition hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            className="mt-4 h-12 w-full rounded-lg bg-teal-500 px-5 text-base font-black text-white transition hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
                             {!inStock ? 'สินค้าหมด' : maxQty <= 0 ? 'ถึงจำนวนสูงสุดแล้ว' : 'เพิ่มลงตะกร้า'}
                         </button>
