@@ -120,7 +120,7 @@ export default function LoginPage() {
               aria-pressed={mode === 'password'}
               className={`min-h-11 rounded-lg px-3 text-sm font-black transition-all ${
                 mode === 'password'
-                  ? 'bg-[var(--primary)] text-[#06201c] shadow-[0_10px_28px_rgba(45,212,191,0.18)]'
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_10px_28px_rgba(45,212,191,0.18)]'
                   : 'text-[var(--text-muted)] hover:bg-white/[0.06] hover:text-[var(--foreground)]'
               }`}
             >
@@ -132,7 +132,7 @@ export default function LoginPage() {
               aria-pressed={mode === 'magic'}
               className={`min-h-11 rounded-lg px-3 text-sm font-black transition-all ${
                 mode === 'magic'
-                  ? 'bg-[var(--primary)] text-[#06201c] shadow-[0_10px_28px_rgba(45,212,191,0.18)]'
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_10px_28px_rgba(45,212,191,0.18)]'
                   : 'text-[var(--text-muted)] hover:bg-white/[0.06] hover:text-[var(--foreground)]'
               }`}
             >

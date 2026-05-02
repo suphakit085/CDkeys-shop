@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ordersApi, Order } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatMoney } from '@/lib/currency';
+import MoneyAmount from '@/components/MoneyAmount';
 
 const statusStyles: Record<Order['status'], { label: string; badge: string; text: string }> = {
     COMPLETED: {
@@ -169,7 +169,9 @@ export default function OrdersPage() {
                     </div>
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
                         <p className="text-xs font-black uppercase text-[var(--text-muted)]">Total paid</p>
-                        <p className="mt-2 text-3xl font-black">{formatMoney(summary.totalSpent)}</p>
+                        <div className="mt-2">
+                            <MoneyAmount value={summary.totalSpent} size="lg" />
+                        </div>
                         <p className="mt-1 text-sm text-[var(--text-muted)]">{summary.pending} รายการรอตรวจสอบ</p>
                     </div>
                 </section>
@@ -178,6 +180,8 @@ export default function OrdersPage() {
                     {orders.map((order) => {
                         const meta = getStatusMeta(order.status);
                         const previewItems = order.orderItems.slice(0, 4);
+                        const firstItem = previewItems[0];
+                        const extraItems = order.orderItems.length - 1;
 
                         return (
                             <Link
@@ -185,16 +189,37 @@ export default function OrdersPage() {
                                 href={`/orders/${order.id}`}
                                 className="group block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--border-strong)]"
                             >
-                                <div className="grid gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
-                                    <div className="grid grid-cols-4 gap-1 bg-[var(--surface-muted)] p-3 lg:grid-cols-2">
-                                        {previewItems.map((item) => (
-                                            <div key={item.id} className="aspect-video overflow-hidden rounded-lg bg-slate-900">
-                                                <img src={gameImage(item.game.imageUrl)} alt={item.game.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                                            </div>
-                                        ))}
-                                        {order.orderItems.length > 4 && (
-                                            <div className="flex aspect-video items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm font-black text-[var(--text-muted)]">
-                                                +{order.orderItems.length - 4}
+                                <div className="grid gap-0 lg:grid-cols-[320px_minmax(0,1fr)]">
+                                    <div className="relative min-h-[190px] overflow-hidden bg-[var(--surface-muted)]">
+                                        {firstItem ? (
+                                            <>
+                                                <img
+                                                    src={gameImage(firstItem.game.imageUrl)}
+                                                    alt={firstItem.game.title}
+                                                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                                                {previewItems.length > 1 && (
+                                                    <div className="absolute inset-x-3 bottom-3 flex gap-2">
+                                                        {previewItems.slice(1).map((item) => (
+                                                            <div
+                                                                key={item.id}
+                                                                className="h-14 w-20 overflow-hidden rounded-lg border border-white/20 bg-slate-900 shadow-lg"
+                                                            >
+                                                                <img src={gameImage(item.game.imageUrl)} alt="" className="h-full w-full object-cover" />
+                                                            </div>
+                                                        ))}
+                                                        {extraItems > 3 && (
+                                                            <div className="flex h-14 w-20 items-center justify-center rounded-lg border border-white/20 bg-black/45 text-sm font-black text-white">
+                                                                +{extraItems - 3}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div className="flex h-full min-h-[190px] items-center justify-center text-sm font-black text-[var(--text-muted)]">
+                                                No image
                                             </div>
                                         )}
                                     </div>
@@ -215,7 +240,9 @@ export default function OrdersPage() {
                                             </div>
                                             <div className="shrink-0 sm:text-right">
                                                 <p className="text-xs font-black uppercase text-[var(--text-muted)]">ยอดรวม</p>
-                                                <p className="mt-1 text-2xl font-black">{formatMoney(order.total)}</p>
+                                                <div className="mt-1">
+                                                    <MoneyAmount value={order.total} size="md" align="right" />
+                                                </div>
                                             </div>
                                         </div>
 

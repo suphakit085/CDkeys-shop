@@ -13,6 +13,7 @@
   --border-strong: rgba(214, 221, 230, 0.22);
   --primary: #2dd4bf;
   --primary-hover: #5eead4;
+  --primary-foreground: #06201c;
   --secondary: #f59e0b;
   --accent: #fb7185;
   --success: #34d399;
@@ -38,7 +39,8 @@
   --border: rgba(15, 23, 42, 0.12);
   --border-strong: rgba(15, 23, 42, 0.22);
   --primary: #0f766e;
-  --primary-hover: #0d9488;
+  --primary-hover: #115e59;
+  --primary-foreground: #ffffff;
   --secondary: #d97706;
   --accent: #e11d48;
   --success: #047857;
@@ -131,7 +133,7 @@ select {
 
   .btn-primary {
     background: var(--primary);
-    color: #06201c;
+    color: var(--primary-foreground);
     border: 1px solid transparent;
     box-shadow: 0 12px 32px rgba(45, 212, 191, 0.2);
   }

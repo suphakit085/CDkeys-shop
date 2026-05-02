@@ -200,7 +200,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="page-shell">
                     <h1 className="text-3xl font-black">ไม่พบเกมนี้</h1>
                     <p className="mt-3 text-slate-500">เกมนี้อาจถูกลบหรือไม่มีในร้านแล้ว</p>
-                    <Link href="/store" className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-teal-500 px-6 font-black text-white hover:bg-teal-600">
+                    <Link href="/store" className="btn-primary mt-8 px-6">
                         กลับไปร้านค้า
                     </Link>
                 </div>

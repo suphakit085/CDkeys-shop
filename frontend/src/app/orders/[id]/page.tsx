@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ordersApi, paymentApi, Order, OrderItem } from '@/lib/api';
 import { getUploadUrl } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatMoney } from '@/lib/currency';
+import MoneyAmount from '@/components/MoneyAmount';
 
 const statusStyles: Record<Order['status'], { label: string; badge: string; title: string; note: string }> = {
     COMPLETED: {
@@ -303,7 +303,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                                     <h3 className="line-clamp-2 text-lg font-black">{item.game.title}</h3>
                                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                                         <span className={`badge ${getPlatformBadge(item.game.platform)}`}>{item.game.platform}</span>
-                                                        <span className="text-sm font-bold text-[var(--text-muted)]">{formatMoney(item.price)}</span>
+                                                        <MoneyAmount value={item.price} size="sm" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -371,7 +371,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
                         <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
                             <p className="text-xs font-black uppercase text-[var(--text-muted)]">ยอดรวม</p>
-                            <p className="mt-2 text-4xl font-black">{formatMoney(order.total)}</p>
+                            <div className="mt-2">
+                                <MoneyAmount value={order.total} size="xl" />
+                            </div>
                         </div>
 
                         <p className="mt-5 break-all font-mono text-xs text-[var(--text-muted)]">{order.id}</p>

@@ -308,19 +308,13 @@ export default function AdminSettingsPage() {
                     className="h-full w-full object-contain p-2"
                   />
                 ) : (
-                  <span
-                    className="text-sm font-black"
-                    style={{ color: primaryColor }}
-                  >
+                  <span className="text-sm font-black text-[color:var(--foreground)]">
                     CK
                   </span>
                 )}
               </div>
               <div className="min-w-0">
-                <p
-                  className="truncate text-lg font-black text-[color:var(--foreground)]"
-                  style={{ color: primaryColor }}
-                >
+                <p className="truncate text-lg font-black text-[color:var(--foreground)]">
                   {storeName || defaultSettings.storeName}
                 </p>
                 <p className="truncate text-sm text-[color:var(--text-muted)]">
