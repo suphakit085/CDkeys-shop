@@ -12,16 +12,20 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import { BannersService } from './banners.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { createImageFileFilter } from '../common/image-file-filter';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('banners')
 export class BannersController {
-  constructor(private bannersService: BannersService) {}
+  constructor(
+    private bannersService: BannersService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   // Public: Get active banners (for homepage)
   @Get()
@@ -90,25 +94,36 @@ export class BannersController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/banners',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `banner-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: createImageFileFilter(),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
+
+    if (this.cloudinaryService.isEnabled()) {
+      const result = await this.cloudinaryService.uploadImage(file, 'banners');
+      return {
+        url: result.url,
+        filename: result.publicId,
+      };
+    }
+
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const uploadDir = path.join(process.cwd(), 'uploads', 'banners');
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const filename = `banner-${uniqueSuffix}${extname(file.originalname)}`;
+    await fs.writeFile(path.join(uploadDir, filename), file.buffer);
+
     return {
-      url: `/uploads/banners/${file.filename}`,
-      filename: file.filename,
+      url: `/uploads/banners/${filename}`,
+      filename,
     };
   }
 }
