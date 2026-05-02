@@ -211,5 +211,4 @@ Start Checkout
 - `DELETE /api/keys/:id` - Delete key
 
 ## License
-
 MIT
