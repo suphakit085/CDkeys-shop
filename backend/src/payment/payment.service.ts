@@ -11,7 +11,13 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SlipOkService } from './slipok.service';
 import { EmailService } from '../email/email.service';
-import { PaymentMethod } from '@prisma/client';
+import {
+  KeyStatus,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from '@prisma/client';
+import { OrderExpirationService } from '../orders/order-expiration.service';
 
 export interface SlipUploadResult {
   autoVerified: boolean;
@@ -60,6 +66,7 @@ export class PaymentService {
     private prisma: PrismaService,
     private slipOkService: SlipOkService,
     private emailService: EmailService,
+    private orderExpirationService: OrderExpirationService,
   ) {}
 
   async generatePromptPayQR(amount: number): Promise<string> {
@@ -79,6 +86,8 @@ export class PaymentService {
     userId: string,
     slipUrl: string,
   ): Promise<SlipUploadResult> {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
@@ -338,6 +347,8 @@ export class PaymentService {
     orderId: string,
     userId: string,
   ): Promise<{ url: string; sessionId: string }> {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
@@ -516,16 +527,49 @@ export class PaymentService {
       return;
     }
 
-    await this.prisma.order.updateMany({
-      where: {
-        id: orderId,
-        paymentMethod: PaymentMethod.CREDIT_CARD,
-        paymentStatus: 'PENDING',
-        status: 'PENDING',
-      },
-      data: {
-        stripePaymentStatus: 'expired',
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: {
+          id: orderId,
+          paymentMethod: PaymentMethod.CREDIT_CARD,
+          paymentStatus: PaymentStatus.PENDING,
+          status: OrderStatus.PENDING,
+        },
+        include: {
+          orderItems: {
+            select: { id: true },
+          },
+        },
+      });
+
+      if (!order) {
+        return;
+      }
+
+      const orderItemIds = order.orderItems.map((item) => item.id);
+
+      if (orderItemIds.length > 0) {
+        await tx.cdKey.updateMany({
+          where: {
+            orderItemId: { in: orderItemIds },
+            status: KeyStatus.RESERVED,
+          },
+          data: {
+            status: KeyStatus.AVAILABLE,
+            reservedAt: null,
+            orderItemId: null,
+          },
+        });
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.CANCELLED,
+          paymentStatus: PaymentStatus.CANCELLED,
+          stripePaymentStatus: 'expired',
+        },
+      });
     });
   }
 

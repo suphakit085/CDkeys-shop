@@ -41,7 +41,7 @@ function isValidSlipFile(file: File) {
 
 function paymentStatusLabel(order: Order) {
   if (order.status === 'COMPLETED') return 'ชำระเงินสำเร็จ';
-  if (order.status === 'FAILED' && order.stripePaymentStatus === 'cancelled_by_customer') return 'ยกเลิกแล้ว';
+  if (order.status === 'CANCELLED') return 'ยกเลิกแล้ว';
   if (order.paymentStatus === 'SLIP_UPLOADED') return 'รอตรวจสลิป';
   if (order.paymentStatus === 'REJECTED') return 'ไม่สำเร็จ';
   return 'รอชำระเงิน';
@@ -248,7 +248,7 @@ export default function PromptPayCheckoutPage({ params }: { params: Promise<{ or
                 <MoneyAmount value={orderTotal} size="lg" />
               </div>
             </div>
-            <span className={`badge ${order.status === 'COMPLETED' ? 'badge-available' : order.status === 'FAILED' ? 'badge-sold' : 'badge-reserved'}`}>
+            <span className={`badge ${order.status === 'COMPLETED' ? 'badge-available' : order.status === 'FAILED' || order.status === 'CANCELLED' ? 'badge-sold' : 'badge-reserved'}`}>
               {paymentStatusLabel(order)}
             </span>
           </div>
@@ -466,7 +466,7 @@ function CheckoutStatePanel({
   onUseStripe: () => void;
 }) {
   const canModify = order.status === 'PENDING' && order.paymentStatus === 'PENDING';
-  const isCancelled = order.status === 'FAILED' && order.stripePaymentStatus === 'cancelled_by_customer';
+  const isCancelled = order.status === 'CANCELLED';
 
   if (order.status === 'COMPLETED') {
     return (

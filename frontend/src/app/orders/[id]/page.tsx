@@ -28,6 +28,12 @@ const statusStyles: Record<Order['status'], { label: string; badge: string; titl
         title: 'คำสั่งซื้อไม่สำเร็จ',
         note: 'ยังไม่มีคีย์สำหรับคำสั่งซื้อนี้',
     },
+    CANCELLED: {
+        label: 'ยกเลิกแล้ว',
+        badge: 'badge-sold',
+        title: 'คำสั่งซื้อถูกยกเลิกแล้ว',
+        note: 'คีย์ที่จองไว้ถูกปล่อยกลับเข้าสต็อกแล้ว',
+    },
 };
 
 const platformBadgeStyles: Record<string, string> = {
@@ -50,15 +56,6 @@ function getStatusMeta(status: Order['status'] | string) {
 }
 
 function getOrderStatusMeta(order: Order) {
-    if (order.status === 'FAILED' && order.stripePaymentStatus === 'cancelled_by_customer') {
-        return {
-            label: 'ยกเลิกแล้ว',
-            badge: 'badge-sold',
-            title: 'คำสั่งซื้อถูกยกเลิกแล้ว',
-            note: 'คีย์ที่จองไว้ถูกปล่อยกลับเข้าสต็อกแล้ว',
-        };
-    }
-
     return getStatusMeta(order.status);
 }
 
@@ -162,11 +159,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     const timeline = useMemo(() => {
         if (!order) return [];
         const paid = order.status === 'COMPLETED';
-        const failed = order.status === 'FAILED';
+        const closed = order.status === 'FAILED' || order.status === 'CANCELLED';
 
         return [
             { label: 'สร้างคำสั่งซื้อ', state: 'done' as const },
-            { label: getPaymentLabel(order.paymentMethod), state: paid ? 'done' as const : failed ? 'muted' as const : 'active' as const },
+            { label: getPaymentLabel(order.paymentMethod), state: paid ? 'done' as const : closed ? 'muted' as const : 'active' as const },
             { label: 'รับคีย์เกม', state: paid ? 'done' as const : 'muted' as const },
         ];
     }, [order]);

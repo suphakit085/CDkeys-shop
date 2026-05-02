@@ -13,6 +13,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { CreateOrderDto } from './dto/orders.dto';
+import { OrderExpirationService } from './order-expiration.service';
 
 interface AdminOrderFilters {
   page?: number;
@@ -28,10 +29,13 @@ export class OrdersService {
     private prisma: PrismaService,
     private keysService: KeysService,
     private paymentService: PaymentService,
+    private orderExpirationService: OrderExpirationService,
   ) {}
 
   // Get user's order history
   async findByUser(userId: string) {
+    await this.orderExpirationService.expireUnpaidOrders(userId);
+
     return this.prisma.order.findMany({
       where: { userId },
       include: {
@@ -50,6 +54,8 @@ export class OrdersService {
 
   // Get single order details
   async findOne(orderId: string, userId: string) {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
       include: {
@@ -73,6 +79,8 @@ export class OrdersService {
 
   // Step 1: Create order and reserve keys
   async createOrder(userId: string, dto: CreateOrderDto) {
+    await this.orderExpirationService.expireUnpaidOrders();
+
     const reservedKeys: { gameId: string; keyId: string; price: number }[] = [];
 
     try {
@@ -157,6 +165,8 @@ export class OrdersService {
 
   // Step 2: Process mock payment
   async processPayment(orderId: string, userId: string, simulateFail = false) {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId, status: OrderStatus.PENDING },
       include: {
@@ -167,6 +177,15 @@ export class OrdersService {
     });
 
     if (!order) {
+      const cancelledOrder = await this.prisma.order.findFirst({
+        where: { id: orderId, userId, status: OrderStatus.CANCELLED },
+        include: this.customerOrderInclude(),
+      });
+
+      if (cancelledOrder) {
+        return cancelledOrder;
+      }
+
       throw new NotFoundException('Pending order not found');
     }
 
@@ -224,6 +243,8 @@ export class OrdersService {
     userId: string,
     paymentMethod: PaymentMethod,
   ) {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId, status: OrderStatus.PENDING },
     });
@@ -263,6 +284,8 @@ export class OrdersService {
 
   // Cancel a pending order (releases keys)
   async cancelOrder(orderId: string, userId: string) {
+    await this.orderExpirationService.expireOrderIfNeeded(orderId, userId);
+
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId, status: OrderStatus.PENDING },
       include: {
@@ -295,8 +318,8 @@ export class OrdersService {
     return this.prisma.order.update({
       where: { id: orderId },
       data: {
-        status: OrderStatus.FAILED,
-        paymentStatus: PaymentStatus.REJECTED,
+        status: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
         paymentSlipUrl: null,
         qrCodeData: null,
         stripePaymentStatus: 'cancelled_by_customer',
@@ -320,6 +343,8 @@ export class OrdersService {
 
   // Admin: get all orders
   async findAll(filters?: AdminOrderFilters) {
+    await this.orderExpirationService.expireUnpaidOrders();
+
     const where: Prisma.OrderWhereInput = {};
 
     if (filters?.status) {
@@ -412,6 +437,8 @@ export class OrdersService {
 
   // Admin: get sales stats
   async getSalesStats() {
+    await this.orderExpirationService.expireUnpaidOrders();
+
     const [totalSales, totalOrders, recentOrders] = await Promise.all([
       this.prisma.order.aggregate({
         where: { status: OrderStatus.COMPLETED },

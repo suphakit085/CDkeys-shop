@@ -25,6 +25,11 @@ const statusStyles: Record<Order['status'], { label: string; badge: string; text
         badge: 'badge-sold',
         text: 'คำสั่งซื้อถูกยกเลิก',
     },
+    CANCELLED: {
+        label: 'ยกเลิกแล้ว',
+        badge: 'badge-sold',
+        text: 'คืนคีย์เข้าสต็อกแล้ว',
+    },
 };
 
 function getStatusMeta(status: Order['status'] | string) {

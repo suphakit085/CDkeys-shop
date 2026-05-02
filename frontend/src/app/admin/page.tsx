@@ -64,7 +64,9 @@ export default function AdminDashboard() {
   const completedOrders = salesStats?.ordersByStatus?.completed || 0;
   const pendingOrders = salesStats?.ordersByStatus?.pending || 0;
   const failedOrders = salesStats?.ordersByStatus?.failed || 0;
-  const orderTotal = completedOrders + pendingOrders + failedOrders || 1;
+  const cancelledOrders = salesStats?.ordersByStatus?.cancelled || 0;
+  const orderTotal =
+    completedOrders + pendingOrders + failedOrders + cancelledOrders || 1;
 
   return (
     <AdminShell
@@ -154,11 +156,12 @@ export default function AdminDashboard() {
         </AdminPanel>
 
         <AdminPanel title="Order pipeline" description="Current order status mix">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { label: 'Completed', value: completedOrders, tone: 'var(--success)' },
               { label: 'Pending', value: pendingOrders, tone: 'var(--warning)' },
               { label: 'Failed', value: failedOrders, tone: 'var(--error)' },
+              { label: 'Cancelled', value: cancelledOrders, tone: 'var(--text-muted)' },
             ].map((item) => (
               <div
                 key={item.label}

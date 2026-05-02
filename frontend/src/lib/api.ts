@@ -463,9 +463,9 @@ export interface Order {
     id: string;
     userId: string;
     total: number;
-    status: 'PENDING' | 'COMPLETED' | 'FAILED';
+    status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
     paymentMethod?: PaymentMethod;
-    paymentStatus?: 'PENDING' | 'SLIP_UPLOADED' | 'VERIFIED' | 'REJECTED';
+    paymentStatus?: 'PENDING' | 'SLIP_UPLOADED' | 'VERIFIED' | 'REJECTED' | 'CANCELLED';
     paymentSlipUrl?: string;
     qrCodeData?: string;
     stripeCheckoutSessionId?: string;

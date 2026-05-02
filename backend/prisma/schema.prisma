@@ -25,6 +25,7 @@ enum OrderStatus {
   PENDING
   COMPLETED
   FAILED
+  CANCELLED
 }
 
 enum PaymentMethod {
@@ -37,6 +38,7 @@ enum PaymentStatus {
   SLIP_UPLOADED
   VERIFIED
   REJECTED
+  CANCELLED
 }
 
 enum Platform {

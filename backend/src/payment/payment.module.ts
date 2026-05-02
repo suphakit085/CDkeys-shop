@@ -3,12 +3,12 @@ import { PaymentService } from './payment.service';
 import { PaymentController } from './payment.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SlipOkService } from './slipok.service';
+import { OrderExpirationService } from '../orders/order-expiration.service';
 
 @Module({
-    imports: [PrismaModule],
-    providers: [PaymentService, SlipOkService],
-    controllers: [PaymentController],
-    exports: [PaymentService, SlipOkService],
+  imports: [PrismaModule],
+  providers: [PaymentService, SlipOkService, OrderExpirationService],
+  controllers: [PaymentController],
+  exports: [PaymentService, SlipOkService],
 })
-export class PaymentModule { }
-
+export class PaymentModule {}
